@@ -124,7 +124,7 @@ export default function Home() {
       {loading && (
         <div className="max-w-xl mx-auto mt-10 flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-amber-400 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-400 text-sm">Claude is predicting your exam questions…</p>
+          <p className="text-gray-400 text-sm">ExamAI is predicting your questions...</p>
         </div>
       )}
 
