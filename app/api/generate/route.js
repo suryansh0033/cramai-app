@@ -8,7 +8,7 @@ export async function POST(request) {
   const { syllabus, hours, examType } = await request.json();
 
   // Safety check: make sure the user actually typed something
-  if (!syllabus || syllabus.trim().split(/\s+/).length < 25) {
+  if (!syllabus || syllabus.trim().split(/\s+/).length < 10) {
     return Response.json(
       { error: "{ error: Please paste your full syllabus. It should be at least a few topics or sentences. }" },
       { status: 400 }
