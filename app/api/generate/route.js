@@ -10,7 +10,7 @@ export async function POST(request) {
   // Safety check: make sure the user actually typed something
   if (!syllabus || syllabus.trim().split(/\s+/).length < 25) {
     return Response.json(
-      { error: "Please paste your syllabus before generating questions." },
+      { error: "{ error: Please paste your full syllabus. It should be at least a few topics or sentences. }" },
       { status: 400 }
     );
   }
