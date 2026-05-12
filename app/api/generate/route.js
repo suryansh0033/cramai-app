@@ -209,7 +209,21 @@ Generate all ${questionCount} questions now.
         continue;
       }
 
-      // Any other error — stop immediately
+      const isTooLong =
+        error?.status === 413 ||
+        error?.message?.toLowerCase().includes("context") ||
+        error?.message?.toLowerCase().includes("too long") ||
+        error?.message?.toLowerCase().includes("token") ||
+        JSON.stringify(error).toLowerCase().includes("context_length") ||
+        JSON.stringify(error).toLowerCase().includes("request_too_large");
+
+      if (isTooLong) {
+        return Response.json(
+          { error: "⚠️ Your syllabus is too long! Please paste only the key topics — keep it under 2000 characters for best results." },
+          { status: 400 }
+        );
+      }
+
       console.error(`GROQ_API_KEY_${i + 1} failed:`, error.message);
       return Response.json(
         { error: "Something went wrong. Please try again." },

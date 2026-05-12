@@ -20,7 +20,7 @@ export default function Home() {
     setLoading(true);   // Show the loading spinner
     setError("");       // Clear any old error
     setQuestions([]);   // Clear old questions
-
+  if (syllabus.length > 2000) return;
     try {
       // Send the syllabus and hours to our API route
       const response = await fetch("/api/generate", {
@@ -84,6 +84,9 @@ if (rawContent.includes("INVALID_SYLLABUS")) {
           value={syllabus}
           onChange={(e) => setSyllabus(e.target.value)}
         />
+        <p className={`text-right text-xs mt-1 ${syllabus.length > 2000 ? "text-red-400" : "text-gray-500"}`}>
+          {syllabus.length} / 2000 characters
+        </p>
 
         {/* Hours dropdown */}
         <label className="block text-sm font-semibold text-gray-300 mt-5 mb-2">
@@ -120,7 +123,7 @@ if (rawContent.includes("INVALID_SYLLABUS")) {
         {/* Generate button */}
         <button
           onClick={handleGenerate}
-          disabled={loading || syllabus.trim() === ""}
+          disabled={loading || syllabus.trim() === "" || syllabus.length > 2000}
           className="mt-6 w-full bg-amber-400 hover:bg-amber-300 disabled:bg-amber-400/30 disabled:cursor-not-allowed text-black font-bold py-4 rounded-xl text-base transition-all duration-200 active:scale-95"
         >
           {loading ? "Generating…" : "Generate Exam Questions"}
