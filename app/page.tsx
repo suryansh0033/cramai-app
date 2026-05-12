@@ -66,7 +66,7 @@ if (rawContent.includes("INVALID_SYLLABUS")) {
           CramAI
         </h1>
         <p className="text-gray-400 mt-2 text-sm">
-          Paste your syllabus → get 20 predicted exam questions instantly
+          Built for college students — paste your syllabus, get the most important exam questions instantly. Stop studying everything, study what matters.
         </p>
       </div>
 
