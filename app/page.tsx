@@ -33,10 +33,13 @@ export default function Home() {
 
       // If the server returned an error message, show it
       if (!response.ok) {
-        setError(data.error || "Something went wrong. Please try again.");
-        return;
-      }
-
+  if (response.status === 429) {
+    setError("⚡ Too many requests right now — try again in a few minutes!");
+  } else {
+    setError(data.error || "Something went wrong. Please try again.");
+  }
+  return;
+}
       // Store the questions so they appear on screen
       setQuestions(data.questions);
     } catch (err) {
@@ -117,8 +120,14 @@ export default function Home() {
 
         {/* Error message */}
         {error && (
-          <p className="mt-4 text-red-400 text-sm text-center">{error}</p>
-        )}
+  <p className={`mt-4 text-sm text-center font-medium ${
+    error.startsWith("⚡")
+      ? "text-amber-400"
+      : "text-red-400"
+  }`}>
+    {error}
+  </p>
+)}
       </div>
 
       {/* ── Loading Spinner ── */}

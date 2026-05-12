@@ -95,10 +95,12 @@ Generate all ${questionCount} questions now.
   const end = rawText.lastIndexOf("]");
 
   if (start === -1 || end === -1) {
-    return Response.json(
-      { error: "AI returned an unexpected format. Please try again." },
-      { status: 500 }
-    );
+  return Response.json(
+  {
+    error: "⚡ Too many requests right now — try again in a few minutes!",
+  },
+  { status: 429 }
+);
   }
 
   const cleanJson = rawText.slice(start, end + 1);
