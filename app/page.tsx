@@ -30,6 +30,14 @@ export default function Home() {
       });
 
       const data = await response.json();
+      // Check if Groq detected the syllabus as invalid
+const rawContent = JSON.stringify(data);
+if (rawContent.includes("INVALID_SYLLABUS")) {
+  setError(
+    "⚠️ Please enter a valid syllabus with real topics. We couldn't detect any recognizable subject matter."
+  );
+  return;
+}
 
       // If the server returned an error message, show it
       if (!response.ok) {

@@ -8,12 +8,25 @@ export async function POST(request) {
   const { syllabus, hours, examType } = await request.json();
 
   // Safety check: make sure the user actually typed something
-  if (!syllabus || syllabus.trim().split(/\s+/).length < 10) {
-    return Response.json(
-      { error: "{ error: Please paste your full syllabus. It should be at least a few topics or sentences. }" },
-      { status: 400 }
-    );
-  }
+  // Safety check: make sure the user actually typed something
+if (!syllabus || syllabus.trim() === "") {
+  return Response.json(
+    { error: "Please paste your syllabus before generating questions." },
+    { status: 400 }
+  );
+}
+
+// Basic gibberish check — must have at least 3 real words of 3+ characters
+const realWords = syllabus.trim().match(/\b[a-zA-Z]{3,}\b/g);
+if (!realWords || realWords.length < 3) {
+  return Response.json(
+    {
+      error:
+        "⚠️ Please enter a valid syllabus with real topics. We couldn't detect any recognizable subject matter.",
+    },
+    { status: 400 }
+  );
+}
   // Add this ABOVE the formatInstructions block
 const questionCount =
   hours === "1" ? 10 :
@@ -33,6 +46,8 @@ const questionCount =
   // Build the prompt we send to Groq
   const prompt = `
 You are an expert exam question predictor for college students.
+
+IMPORTANT: First check if the syllabus provided contains real academic topics or subjects. If it is random gibberish, nonsense, or contains no recognizable academic content, respond with only: INVALID_SYLLABUS and absolutely nothing else. No JSON, no explanation.
 
 A student has ${hours} hour(s) left before their exam. You MUST generate EXACTLY ${questionCount} questions — no more, no less. Count them before responding.
 First, silently analyze the syllabus below and decide which category it falls into:
