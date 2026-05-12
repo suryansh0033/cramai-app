@@ -14,15 +14,20 @@ export async function POST(request) {
       { status: 400 }
     );
   }
+  // Add this ABOVE the formatInstructions block
+const questionCount =
+  hours === "1" ? 10 :
+  hours === "8" ? 30 :
+  20;
 
   // Format instructions based on the exam type the user selected
   const formatInstructions = {
-    "Mixed": "Generate a mix of question types: MCQs, short answer, and descriptive questions.",
-    "MCQs only": "Generate ALL 20 as MCQs. Each must have 4 options labeled A, B, C, D. In the answer field, write which option is correct and why briefly. Example answer: 'B) Because...'",
-    "Coding questions only": "Generate ALL 20 as coding problems. Each question should describe a problem to solve with expected input/output examples. In the answer field, provide a clean solution with a one-line explanation.",
-    "Short answer": "Generate ALL 20 as short answer questions. Each answer must be 2-3 lines maximum.",
-    "Subjective": "Generate ALL 20 as subjective questions requiring detailed explanations. Answers should be thorough, covering key concepts, examples, and implications.",
-  };
+  "Mixed": "Generate a mix of question types: MCQs, short answer, and descriptive questions.",
+  "MCQs only": `Generate ALL ${questionCount} as MCQs. Each must have 4 options labeled A, B, C, D. In the answer field, write which option is correct and why briefly. Example answer: 'B) Because...'`,
+  "Coding questions only": `Generate ALL ${questionCount} as coding problems. Each question should describe a problem to solve with expected input/output examples. In the answer field, provide a clean solution with a one-line explanation.`,
+  "Short answer": `Generate ALL ${questionCount} as short answer questions. Each answer must be 2-3 lines maximum.`,
+  "Subjective": `Generate ALL ${questionCount} as subjective questions requiring detailed explanations. Answers should be thorough, covering key concepts, examples, and implications.`,
+};
 
   // Build the prompt we send to Groq
   const prompt = `
