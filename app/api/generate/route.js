@@ -181,7 +181,7 @@ Generate all ${questionCount} questions now.
         model: "llama-3.1-8b-instant",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.85,
-        max_tokens: 4000,
+        max_tokens: mode === "paper" ? 8000 : 4000,
       });
 
       let rawText = completion.choices[0].message.content;

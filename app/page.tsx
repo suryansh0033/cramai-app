@@ -333,6 +333,11 @@ export default function Home() {
             </div>
           </div>
         )}
+        {mode === "paper" && sections.reduce((s, sec) => s + sec.count, 0) > 20 && (
+  <p className="mt-3 text-xs text-amber-400 text-center">
+    ⚠️ Large papers may generate slowly. Keep total questions under 20 for best results.
+  </p>
+)}
 
         {/* ── Generate Button ── */}
         <button
