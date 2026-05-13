@@ -2,7 +2,6 @@
 
 type Question = {
   question: string;
-  answer: string;
   section?: string;
   type?: string;
   marks?: number;
@@ -33,10 +32,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Mode: "important" or "paper"
   const [mode, setMode] = useState<"important" | "paper">("important");
 
-  // Question paper sections
   const [sections, setSections] = useState<Section[]>([
     { id: 1, type: "MCQ", count: 10, marks: 1 },
   ]);
@@ -127,7 +124,6 @@ export default function Home() {
   const questionCount =
     hours === "1" ? 10 : hours === "8" ? 30 : 20;
 
-  // Group paper questions by section
   const paperSections = sections.map((sec, i) => {
     const label = String.fromCharCode(65 + i);
     const start = sections.slice(0, i).reduce((sum, s) => sum + s.count, 0);
@@ -247,7 +243,6 @@ export default function Home() {
                     key={sec.id}
                     className="bg-[#0f0f0f] border border-white/10 rounded-xl p-4"
                   >
-                    {/* Section header */}
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-md">
                         SECTION {sectionLabel}
@@ -262,9 +257,7 @@ export default function Home() {
                       )}
                     </div>
 
-                    {/* Section fields */}
                     <div className="grid grid-cols-3 gap-2">
-                      {/* Question Type */}
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Type</p>
                         <select
@@ -280,7 +273,6 @@ export default function Home() {
                         </select>
                       </div>
 
-                      {/* Number of Questions */}
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Questions</p>
                         <input
@@ -293,7 +285,6 @@ export default function Home() {
                         />
                       </div>
 
-                      {/* Marks per Question */}
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Marks each</p>
                         <select
@@ -308,7 +299,6 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* Section subtotal */}
                     <p className="text-right text-xs text-gray-600 mt-2">
                       {sec.count} × {sec.marks} = <span className="text-gray-400">{sec.count * sec.marks} marks</span>
                     </p>
@@ -317,7 +307,6 @@ export default function Home() {
               })}
             </div>
 
-            {/* Add Section button */}
             <button
               onClick={addSection}
               disabled={sections.length >= 6}
@@ -326,18 +315,18 @@ export default function Home() {
               + Add Section
             </button>
 
-            {/* Total marks summary */}
             <div className="mt-4 flex justify-between items-center bg-amber-400/5 border border-amber-400/20 rounded-xl px-4 py-3">
               <span className="text-sm text-gray-300">Total Marks</span>
               <span className="text-xl font-black text-amber-400">{totalMarks}</span>
             </div>
+
+            {mode === "paper" && sections.reduce((s, sec) => s + sec.count, 0) > 20 && (
+              <p className="mt-3 text-xs text-amber-400 text-center">
+                ⚠️ Large papers may generate slowly. Keep total questions under 20 for best results.
+              </p>
+            )}
           </div>
         )}
-        {mode === "paper" && sections.reduce((s, sec) => s + sec.count, 0) > 20 && (
-  <p className="mt-3 text-xs text-amber-400 text-center">
-    ⚠️ Large papers may generate slowly. Keep total questions under 20 for best results.
-  </p>
-)}
 
         {/* ── Generate Button ── */}
         <button
@@ -390,13 +379,8 @@ export default function Home() {
                 <p className="text-sm font-bold text-amber-400 mb-1">
                   Q{index + 1}.
                 </p>
-                <p className="text-white text-sm font-medium leading-relaxed">
+                <p className="text-white text-sm font-medium leading-relaxed whitespace-pre-line">
                   {item.question}
-                </p>
-                <div className="border-t border-white/10 my-3" />
-                <p className="text-gray-300 text-sm leading-relaxed">
-                  <span className="text-green-400 font-semibold">Answer: </span>
-                  {item.answer}
                 </p>
               </div>
             ))}
@@ -422,7 +406,7 @@ export default function Home() {
               &nbsp;·&nbsp;
               Total Questions: <span className="text-white font-bold">{questions.length}</span>
             </p>
-            <div className="border-t border-white/10 mt-4 pt-4 flex justify-center gap-8 text-xs text-gray-500">
+            <div className="border-t border-white/10 mt-4 pt-4 flex flex-wrap justify-center gap-4 text-xs text-gray-500">
               {sections.map((sec, i) => (
                 <span key={sec.id}>
                   Section {String.fromCharCode(65 + i)}: {sec.count} × {sec.type} ({sec.count * sec.marks} marks)
@@ -459,11 +443,6 @@ export default function Home() {
                     </div>
                     <p className="text-white text-sm font-medium leading-relaxed whitespace-pre-line">
                       {item.question}
-                    </p>
-                    <div className="border-t border-white/10 my-3" />
-                    <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">
-                      <span className="text-green-400 font-semibold">Answer: </span>
-                      {item.answer}
                     </p>
                   </div>
                 ))}

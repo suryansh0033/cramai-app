@@ -43,53 +43,34 @@ export async function POST(request) {
     }
 
     const sectionDescriptions = sections.map((sec, i) => {
-      const sectionLabel = String.fromCharCode(65 + i); // A, B, C...
+      const sectionLabel = String.fromCharCode(65 + i);
       return `Section ${sectionLabel}: ${sec.count} ${sec.type} question(s) of ${sec.marks} mark(s) each`;
     }).join("\n");
 
     const totalQuestions = sections.reduce((sum, sec) => sum + Number(sec.count), 0);
     const totalMarks = sections.reduce((sum, sec) => sum + Number(sec.count) * Number(sec.marks), 0);
 
-    prompt = `
-You are an expert university exam paper setter.
+    prompt = `You are an exam paper setter. Syllabus: ${syllabus}
 
-IMPORTANT: First check if the syllabus contains real academic topics. If it is gibberish or nonsense, respond with only: INVALID_SYLLABUS
+If syllabus is gibberish, reply only: INVALID_SYLLABUS
 
-Generate a formal university question paper based on this syllabus:
-${syllabus}
-
-The question paper must follow this exact structure:
+Generate exactly ${totalQuestions} questions for this paper structure:
 ${sectionDescriptions}
 
-Total Questions: ${totalQuestions}
-Total Marks: ${totalMarks}
+Rules:
+- Add [Unit - Topic] before each question
+- MCQ: include 4 options labeled A) B) C) D) in the question text
+- Short Answer: clear concise question only
+- Long Answer: detailed question only
+- Numerical: include all required values/data in the question
+- Coding: problem statement with sample input/output in the question
+- Spread questions across all syllabus units, no repeats
+- Do NOT include any answers
 
-STRICT FORMATTING RULES:
-- Start with a header: "QUESTION PAPER" then "Total Marks: ${totalMarks}"
-- Label each section clearly: "SECTION A", "SECTION B", etc.
-- Number questions sequentially within each section: Q1, Q2, Q3...
-- Always mention the unit/topic name before each question in brackets like [Unit 2 - Thermodynamics]
-- For MCQs: provide 4 options labeled A, B, C, D. At the end of each MCQ write "Answer: X) ..." on a new line
-- For Short Answer: questions must be answerable in 3-5 lines. Provide a model answer.
-- For Long Answer: questions require detailed explanation. Provide a thorough answer with examples.
-- For Numerical: show the formula used, then step-by-step working, then box the final answer.
-- For Coding: describe a programming problem clearly with sample input/output. Provide a clean working solution with brief explanation.
-- Distribute questions across all units in the syllabus. Do not repeat topics.
-- Match difficulty to the question type and marks — higher marks = harder, more detailed question.
+Return ONLY a JSON array, no markdown:
+[{"section":"A","type":"MCQ","marks":1,"question":"[Unit 1 - Topic] Question?\nA) ...\nB) ...\nC) ...\nD) ..."}]
 
-Return ONLY a valid JSON array. No markdown, no backticks, no extra text. Format:
-[
-  {
-    "section": "A",
-    "type": "MCQ",
-    "marks": 1,
-    "question": "[Unit 1 - Topic Name] Full question here?\nA) Option\nB) Option\nC) Option\nD) Option",
-    "answer": "Answer: B) Because..."
-  }
-]
-
-Generate all ${totalQuestions} questions now. Count them before finalizing — the array MUST have exactly ${totalQuestions} objects.
-`;
+Generate all ${totalQuestions} objects now.`;
 
   // ── IMPORTANT QUESTIONS MODE ──
   } else {
@@ -100,66 +81,58 @@ Generate all ${totalQuestions} questions now. Count them before finalizing — t
 
     const difficultyGuide =
       hours === "1"
-        ? "Focus ONLY on the easiest, most frequently asked, most important questions. No hard or tricky questions."
+        ? "Focus ONLY on the easiest, most frequently asked, most important questions."
         : hours === "2" || hours === "4"
         ? "Mix of easy (60%) and medium (40%) difficulty questions. Cover all important topics."
         : "Mix of easy (30%), medium (40%), and hard (30%) questions. Cover everything in depth.";
 
     const formatInstructions = {
       "Mixed": "Generate a smart mix of MCQs, short answer, and descriptive questions based on the topic type.",
-      "MCQs only": `ALL ${questionCount} must be MCQs. Each must have 4 options labeled A, B, C, D. Answer field: state which option is correct and briefly why.`,
-      "Coding questions only": `ALL ${questionCount} must be coding problems. Each question describes a problem with sample input/output. Answer field: provide clean working code with a one-line explanation.`,
-      "Short answer": `ALL ${questionCount} must be short answer questions. Each answer must be 2-4 lines maximum — no long paragraphs.`,
-      "Subjective": `ALL ${questionCount} must be subjective questions. Answers should be full paragraphs covering key concepts, examples, and implications.`,
-      "Numericals only": `ALL ${questionCount} must be numerical problems. Every question must require calculation. Answer must show: formula used → step-by-step working → final answer clearly stated.`,
+      "MCQs only": `ALL ${questionCount} must be MCQs. Each must have 4 options labeled A) B) C) D) inside the question text.`,
+      "Coding questions only": `ALL ${questionCount} must be coding problems. Each question describes a problem with sample input/output.`,
+      "Short answer": `ALL ${questionCount} must be short answer questions.`,
+      "Subjective": `ALL ${questionCount} must be subjective questions requiring detailed explanation.`,
+      "Numericals only": `ALL ${questionCount} must be numerical problems with all required values provided in the question.`,
     };
 
-    prompt = `
-You are an expert exam question predictor for college students.
+    prompt = `You are an expert exam question predictor for college students.
 
-IMPORTANT: First check if the syllabus contains real academic topics. If it is gibberish or nonsense, respond with only: INVALID_SYLLABUS and nothing else.
+IMPORTANT: If the syllabus is gibberish or nonsense, respond with only: INVALID_SYLLABUS
 
-SYLLABUS TO ANALYZE:
+SYLLABUS:
 ${syllabus}
 
-YOUR TASK: Generate EXACTLY ${questionCount} predicted exam questions. Count before responding — not one more, not one less.
+Generate EXACTLY ${questionCount} predicted exam questions. No answers — questions only.
 
 STEP 1 — UNIT ANALYSIS:
-Silently identify all units and topics in the syllabus. Assign weightage to each unit based on number of topics and complexity. Heavier units get more questions. Every unit must get at least 1 question.
+Identify all units/topics. Give more questions to heavier units. Every unit gets at least 1 question.
 
 STEP 2 — DIFFICULTY:
 ${difficultyGuide}
 
-STEP 3 — SUBJECT TYPE DETECTION:
-If MATHEMATICS or pure numerical subject: all questions must be numerical problems with step-by-step solutions.
-If MIXED (Physics, Chemistry, Electronics, Engineering): split numerical and conceptual questions proportionally to the syllabus content.
-If PURE THEORY (History, Biology, Management, Law, Literature): all questions conceptual and descriptive.
+STEP 3 — SUBJECT TYPE:
+If MATHEMATICS: all numerical problems.
+If MIXED (Physics, Chemistry, Electronics, Engineering): split numerical and conceptual proportionally.
+If PURE THEORY: all conceptual and descriptive questions.
 
-STEP 4 — EXAM TYPE FORMAT:
+STEP 4 — FORMAT:
 ${formatInstructions[examType] || formatInstructions["Mixed"]}
 
-STEP 5 — ANSWER LENGTH RULES:
-- MCQ → one line answer stating correct option and why (e.g. "B) Because Newton's third law states...")
-- Short Answer → 2-4 lines
-- Subjective → full paragraph with explanation, examples, and implications
-- Numerical → formula → step-by-step working → final answer clearly boxed/stated
-- Coding → clean working code with one-line explanation
+STEP 5 — QUESTION FORMAT:
+Always start each question with the unit label like: [Unit 2 - Fluid Mechanics]
+For MCQs include all 4 options A) B) C) D) inside the question field.
+For Numericals include all required values in the question.
+Do NOT include any answers.
 
-STEP 6 — QUESTION FORMAT:
-Always start each question with the unit label like: "[Unit 2 - Fluid Mechanics]"
-This helps students know which unit the question is from.
-
-Return ONLY a valid JSON array. No explanation, no markdown, no backticks. Format:
+Return ONLY a valid JSON array. No explanation, no markdown, no backticks:
 [
   {
-    "question": "[Unit 1 - Topic Name] Write the full question here?",
-    "answer": "Write the full answer here with steps if numerical."
+    "question": "[Unit 1 - Topic Name] Write the full question here?"
   }
 ]
 
-IMPORTANT: The JSON array MUST contain exactly ${questionCount} objects. Count them before finalizing.
-Generate all ${questionCount} questions now.
-`;
+The array MUST contain exactly ${questionCount} objects. Count before finalizing.
+Generate all ${questionCount} questions now.`;
   }
 
   let lastError = null;
