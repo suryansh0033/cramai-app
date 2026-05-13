@@ -1,6 +1,5 @@
 import Groq from "groq-sdk";
 
-// All three API keys loaded from your .env.local file
 const API_KEYS = [
   process.env.GROQ_API_KEY_1,
   process.env.GROQ_API_KEY_2,
@@ -8,10 +7,8 @@ const API_KEYS = [
 ];
 
 export async function POST(request) {
-  // Read the syllabus, hours, and exam type the user sent from the front-end
-  const { syllabus, hours, examType } = await request.json();
+  const { syllabus, hours, examType, mode, sections } = await request.json();
 
-  // Safety check: make sure the user actually typed something
   if (!syllabus || syllabus.trim() === "") {
     return Response.json(
       { error: "Please paste your syllabus before generating questions." },
@@ -19,85 +16,157 @@ export async function POST(request) {
     );
   }
 
-  // Basic gibberish check — must have at least 3 real words of 3+ characters
-  const realWords = syllabus.trim().match(/\b[a-zA-Z]{3,}\b/g);
-  if (!realWords || realWords.length < 3) {
+  if (syllabus.length > 2000) {
     return Response.json(
-      {
-        error:
-          "⚠️ Please enter a valid syllabus with real topics. We couldn't detect any recognizable subject matter.",
-      },
+      { error: "⚠️ Your syllabus is too long! Please paste only the key topics — keep it under 2000 characters for best results." },
       { status: 400 }
     );
   }
 
-  // Decide how many questions based on hours left
-  const questionCount =
-    hours === "1" ? 10 :
-    hours === "8" ? 30 :
-    20;
+  const realWords = syllabus.trim().match(/\b[a-zA-Z]{3,}\b/g);
+  if (!realWords || realWords.length < 3) {
+    return Response.json(
+      { error: "⚠️ Please enter a valid syllabus with real topics. We couldn't detect any recognizable subject matter." },
+      { status: 400 }
+    );
+  }
 
-  // Format instructions based on the exam type the user selected
-  const formatInstructions = {
-    "Mixed": "Generate a mix of question types: MCQs, short answer, and descriptive questions.",
-    "MCQs only": `Generate ALL ${questionCount} as MCQs. Each must have 4 options labeled A, B, C, D. In the answer field, write which option is correct and why briefly. Example answer: 'B) Because...'`,
-    "Coding questions only": `Generate ALL ${questionCount} as coding problems. Each question should describe a problem to solve with expected input/output examples. In the answer field, provide a clean solution with a one-line explanation.`,
-    "Short answer": `Generate ALL ${questionCount} as short answer questions. Each answer must be 2-3 lines maximum.`,
-    "Subjective": `Generate ALL ${questionCount} as subjective questions requiring detailed explanations. Answers should be thorough, covering key concepts, examples, and implications.`,
-    "Numericals only": `Generate ALL ${questionCount} as numerical problems with real numbers and calculations. Every question must require the student to calculate, solve, or derive something. Show clear step-by-step working in the answer with the final answer clearly stated.`,
-  };
+  let prompt = "";
 
-  // Build the prompt we send to Groq
-  const prompt = `
-You are an expert exam question predictor for college students.
+  // ── QUESTION PAPER MODE ──
+  if (mode === "paper") {
+    if (!sections || sections.length === 0) {
+      return Response.json(
+        { error: "Please add at least one section to generate a question paper." },
+        { status: 400 }
+      );
+    }
 
-IMPORTANT: First check if the syllabus provided contains real academic topics or subjects. If it is random gibberish, nonsense, or contains no recognizable academic content, respond with only: INVALID_SYLLABUS and absolutely nothing else. No JSON, no explanation.
+    const sectionDescriptions = sections.map((sec, i) => {
+      const sectionLabel = String.fromCharCode(65 + i); // A, B, C...
+      return `Section ${sectionLabel}: ${sec.count} ${sec.type} question(s) of ${sec.marks} mark(s) each`;
+    }).join("\n");
 
-A student has ${hours} hour(s) left before their exam. You MUST generate EXACTLY ${questionCount} questions — no more, no less. Count them before responding. Exam type: ${examType}. ${formatInstructions[examType]}
+    const totalQuestions = sections.reduce((sum, sec) => sum + Number(sec.count), 0);
+    const totalMarks = sections.reduce((sum, sec) => sum + Number(sec.count) * Number(sec.marks), 0);
 
-First, silently analyze the syllabus below and decide which category it falls into:
+    prompt = `
+You are an expert university exam paper setter.
 
-If MATHEMATICS (pure maths, numerical methods, statistics):
-- All ${questionCount} questions must be numerical problems requiring calculation, derivation, or equation solving.
-- No definitions or conceptual questions at all.
-- Every answer must show step-by-step working with the final answer clearly stated.
-- If the exam type is "Numericals only", strictly override everything and generate only numerical calculation problems regardless of subject.
+IMPORTANT: First check if the syllabus contains real academic topics. If it is gibberish or nonsense, respond with only: INVALID_SYLLABUS
 
-If MIXED NUMERICAL + THEORY (Physics, Chemistry, Electronics, Engineering subjects):
-- Analyze the syllabus topics individually. Some topics will be numerical, some will be conceptual.
-- For numerical topics (formulas, laws with calculations, circuit problems, reactions with quantities): generate calculation-based problems with step-by-step answers.
-- For theory topics (definitions, principles, mechanisms, explanations): generate conceptual questions with clear descriptive answers.
-- Split the ${questionCount} questions proportionally — if the syllabus is 60% numerical topics, roughly 60% questions should be numerical. Match the balance to the syllabus content.
-- Do NOT force every question to be numerical just because the subject has some maths in it.
-
-If PURE THEORY (History, Biology concepts, Law, Literature, Management):
-- All ${questionCount} questions should be conceptual, descriptive, or application-based.
-- Answers should explain clearly in 2-4 sentences matching the exam type format.
-- No numerical problems.
-
-Syllabus:
+Generate a formal university question paper based on this syllabus:
 ${syllabus}
 
-Return ONLY a valid JSON array. No explanation, no markdown, no backticks, no extra text. Format exactly like this:
+The question paper must follow this exact structure:
+${sectionDescriptions}
+
+Total Questions: ${totalQuestions}
+Total Marks: ${totalMarks}
+
+STRICT FORMATTING RULES:
+- Start with a header: "QUESTION PAPER" then "Total Marks: ${totalMarks}"
+- Label each section clearly: "SECTION A", "SECTION B", etc.
+- Number questions sequentially within each section: Q1, Q2, Q3...
+- Always mention the unit/topic name before each question in brackets like [Unit 2 - Thermodynamics]
+- For MCQs: provide 4 options labeled A, B, C, D. At the end of each MCQ write "Answer: X) ..." on a new line
+- For Short Answer: questions must be answerable in 3-5 lines. Provide a model answer.
+- For Long Answer: questions require detailed explanation. Provide a thorough answer with examples.
+- For Numerical: show the formula used, then step-by-step working, then box the final answer.
+- For Coding: describe a programming problem clearly with sample input/output. Provide a clean working solution with brief explanation.
+- Distribute questions across all units in the syllabus. Do not repeat topics.
+- Match difficulty to the question type and marks — higher marks = harder, more detailed question.
+
+Return ONLY a valid JSON array. No markdown, no backticks, no extra text. Format:
 [
   {
-    "question": "Write the question here?",
-    "answer": "Write the answer here with steps if numerical."
+    "section": "A",
+    "type": "MCQ",
+    "marks": 1,
+    "question": "[Unit 1 - Topic Name] Full question here?\nA) Option\nB) Option\nC) Option\nD) Option",
+    "answer": "Answer: B) Because..."
   }
 ]
 
-IMPORTANT: Count your questions before finalizing. The JSON array MUST contain exactly ${questionCount} objects. Not 18. Not 19. Exactly ${questionCount}.
-
-Generate all ${questionCount} questions now.
+Generate all ${totalQuestions} questions now. Count them before finalizing — the array MUST have exactly ${totalQuestions} objects.
 `;
 
-  // Try each API key one by one until one works
+  // ── IMPORTANT QUESTIONS MODE ──
+  } else {
+    const questionCount =
+      hours === "1" ? 10 :
+      hours === "8" ? 30 :
+      20;
+
+    const difficultyGuide =
+      hours === "1"
+        ? "Focus ONLY on the easiest, most frequently asked, most important questions. No hard or tricky questions."
+        : hours === "2" || hours === "4"
+        ? "Mix of easy (60%) and medium (40%) difficulty questions. Cover all important topics."
+        : "Mix of easy (30%), medium (40%), and hard (30%) questions. Cover everything in depth.";
+
+    const formatInstructions = {
+      "Mixed": "Generate a smart mix of MCQs, short answer, and descriptive questions based on the topic type.",
+      "MCQs only": `ALL ${questionCount} must be MCQs. Each must have 4 options labeled A, B, C, D. Answer field: state which option is correct and briefly why.`,
+      "Coding questions only": `ALL ${questionCount} must be coding problems. Each question describes a problem with sample input/output. Answer field: provide clean working code with a one-line explanation.`,
+      "Short answer": `ALL ${questionCount} must be short answer questions. Each answer must be 2-4 lines maximum — no long paragraphs.`,
+      "Subjective": `ALL ${questionCount} must be subjective questions. Answers should be full paragraphs covering key concepts, examples, and implications.`,
+      "Numericals only": `ALL ${questionCount} must be numerical problems. Every question must require calculation. Answer must show: formula used → step-by-step working → final answer clearly stated.`,
+    };
+
+    prompt = `
+You are an expert exam question predictor for college students.
+
+IMPORTANT: First check if the syllabus contains real academic topics. If it is gibberish or nonsense, respond with only: INVALID_SYLLABUS and nothing else.
+
+SYLLABUS TO ANALYZE:
+${syllabus}
+
+YOUR TASK: Generate EXACTLY ${questionCount} predicted exam questions. Count before responding — not one more, not one less.
+
+STEP 1 — UNIT ANALYSIS:
+Silently identify all units and topics in the syllabus. Assign weightage to each unit based on number of topics and complexity. Heavier units get more questions. Every unit must get at least 1 question.
+
+STEP 2 — DIFFICULTY:
+${difficultyGuide}
+
+STEP 3 — SUBJECT TYPE DETECTION:
+If MATHEMATICS or pure numerical subject: all questions must be numerical problems with step-by-step solutions.
+If MIXED (Physics, Chemistry, Electronics, Engineering): split numerical and conceptual questions proportionally to the syllabus content.
+If PURE THEORY (History, Biology, Management, Law, Literature): all questions conceptual and descriptive.
+
+STEP 4 — EXAM TYPE FORMAT:
+${formatInstructions[examType] || formatInstructions["Mixed"]}
+
+STEP 5 — ANSWER LENGTH RULES:
+- MCQ → one line answer stating correct option and why (e.g. "B) Because Newton's third law states...")
+- Short Answer → 2-4 lines
+- Subjective → full paragraph with explanation, examples, and implications
+- Numerical → formula → step-by-step working → final answer clearly boxed/stated
+- Coding → clean working code with one-line explanation
+
+STEP 6 — QUESTION FORMAT:
+Always start each question with the unit label like: "[Unit 2 - Fluid Mechanics]"
+This helps students know which unit the question is from.
+
+Return ONLY a valid JSON array. No explanation, no markdown, no backticks. Format:
+[
+  {
+    "question": "[Unit 1 - Topic Name] Write the full question here?",
+    "answer": "Write the full answer here with steps if numerical."
+  }
+]
+
+IMPORTANT: The JSON array MUST contain exactly ${questionCount} objects. Count them before finalizing.
+Generate all ${questionCount} questions now.
+`;
+  }
+
   let lastError = null;
 
   for (let i = 0; i < API_KEYS.length; i++) {
     const apiKey = API_KEYS[i];
 
-    // Skip this slot if the key is missing from .env.local
     if (!apiKey) {
       console.warn(`GROQ_API_KEY_${i + 1} is not set — skipping.`);
       continue;
@@ -115,24 +184,16 @@ Generate all ${questionCount} questions now.
         max_tokens: 4000,
       });
 
-      // Extract the text Groq replied with
       let rawText = completion.choices[0].message.content;
-
-      // Strip markdown code fences if the model added them
       rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
 
-      // Check if Groq detected the syllabus as invalid
       if (rawText.includes("INVALID_SYLLABUS")) {
         return Response.json(
-          {
-            error:
-              "⚠️ Please enter a valid syllabus with real topics. We couldn't detect any recognizable subject matter.",
-          },
+          { error: "⚠️ Please enter a valid syllabus with real topics. We couldn't detect any recognizable subject matter." },
           { status: 400 }
         );
       }
 
-      // Find the first [ and last ] to extract only the JSON array
       const start = rawText.indexOf("[");
       const end = rawText.lastIndexOf("]");
 
@@ -144,21 +205,25 @@ Generate all ${questionCount} questions now.
       }
 
       const cleanJson = rawText.slice(start, end + 1);
-
-      // Fix bad escape characters from LaTeX or code backslashes
       const sanitized = cleanJson.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
-
-      // Parse the JSON into a JavaScript array
       const questions = JSON.parse(sanitized);
 
-      // If too many, trim and return
-      if (questions.length >= questionCount) {
-        const trimmed = questions.slice(0, questionCount);
-        console.log(`Success with GROQ_API_KEY_${i + 1}`);
-        return Response.json({ questions: trimmed });
+      if (mode === "paper") {
+        const totalNeeded = sections.reduce((sum, sec) => sum + Number(sec.count), 0);
+        console.log(`Success with GROQ_API_KEY_${i + 1} — got ${questions.length} questions`);
+        return Response.json({ questions: questions.slice(0, totalNeeded) });
       }
 
-      // If too few, retry same key up to 2 more times
+      const questionCount =
+        hours === "1" ? 10 :
+        hours === "8" ? 30 :
+        20;
+
+      if (questions.length >= questionCount) {
+        console.log(`Success with GROQ_API_KEY_${i + 1}`);
+        return Response.json({ questions: questions.slice(0, questionCount) });
+      }
+
       console.warn(`Got ${questions.length} questions, expected ${questionCount}. Retrying...`);
 
       let retryQuestions = questions;
@@ -187,12 +252,10 @@ Generate all ${questionCount} questions now.
         }
       }
 
-      // Return best attempt even if count is slightly off
       console.warn(`Returning best attempt: ${retryQuestions.length} questions.`);
       return Response.json({ questions: retryQuestions });
 
     } catch (error) {
-      // Log full error structure to Vercel logs
       console.error(`Key ${i + 1} error:`, JSON.stringify(error));
 
       const isRateLimit =
@@ -232,12 +295,9 @@ Generate all ${questionCount} questions now.
     }
   }
 
-  // If every key was rate limited
   console.error("All Groq API keys are rate limited.");
   return Response.json(
-    {
-      error: "⚡ Too many requests right now — try again in a few minutes!",
-    },
+    { error: "⚡ Too many requests right now — try again in a few minutes!" },
     { status: 429 }
   );
 }

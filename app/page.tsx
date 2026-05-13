@@ -1,13 +1,31 @@
-"use client"; // This tells Next.js this page runs in the browser
+"use client";
+
 type Question = {
   question: string;
   answer: string;
+  section?: string;
+  type?: string;
+  marks?: number;
+};
+
+type Section = {
+  id: number;
+  type: string;
+  count: number;
+  marks: number;
 };
 
 import { useState } from "react";
 
+const MARKS_OPTIONS: Record<string, number[]> = {
+  "MCQ": [0.5, 1, 2],
+  "Short Answer": [2, 3, 5],
+  "Long Answer": [5, 10, 20],
+  "Numerical": [2, 5, 10],
+  "Coding": [5, 10, 20],
+};
+
 export default function Home() {
-  // These variables store what the user types and what Claude returns
   const [syllabus, setSyllabus] = useState("");
   const [hours, setHours] = useState("2");
   const [examType, setExamType] = useState("Mixed");
@@ -15,59 +33,143 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // This function runs when the user clicks "Generate Exam Questions"
+  // Mode: "important" or "paper"
+  const [mode, setMode] = useState<"important" | "paper">("important");
+
+  // Question paper sections
+  const [sections, setSections] = useState<Section[]>([
+    { id: 1, type: "MCQ", count: 10, marks: 1 },
+  ]);
+  const [nextId, setNextId] = useState(2);
+
+  const totalMarks = sections.reduce(
+    (sum, sec) => sum + sec.count * sec.marks,
+    0
+  );
+
+  function addSection() {
+    setSections((prev) => [
+      ...prev,
+      { id: nextId, type: "MCQ", count: 5, marks: 1 },
+    ]);
+    setNextId((n) => n + 1);
+  }
+
+  function removeSection(id: number) {
+    setSections((prev) => prev.filter((s) => s.id !== id));
+  }
+
+  function updateSection(id: number, field: keyof Section, value: string | number) {
+    setSections((prev) =>
+      prev.map((s) => {
+        if (s.id !== id) return s;
+        if (field === "type") {
+          const newMarks = MARKS_OPTIONS[value as string][0];
+          return { ...s, type: value as string, marks: newMarks };
+        }
+        return { ...s, [field]: Number(value) };
+      })
+    );
+  }
+
   async function handleGenerate() {
-    setLoading(true);   // Show the loading spinner
-    setError("");       // Clear any old error
-    setQuestions([]);   // Clear old questions
-  if (syllabus.length > 2000) return;
+    setLoading(true);
+    setError("");
+    setQuestions([]);
+
+    if (syllabus.length > 2000) return;
+
+    if (mode === "paper" && sections.length === 0) {
+      setError("Please add at least one section before generating.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Send the syllabus and hours to our API route
+      const body =
+        mode === "paper"
+          ? { syllabus, mode: "paper", sections }
+          : { syllabus, hours, examType, mode: "important" };
+
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ syllabus, hours, examType }),
+        body: JSON.stringify(body),
       });
 
       const data = await response.json();
-      // Check if Groq detected the syllabus as invalid
-const rawContent = JSON.stringify(data);
-if (rawContent.includes("INVALID_SYLLABUS")) {
-  setError(
-    "⚠️ Please enter a valid syllabus with real topics. We couldn't detect any recognizable subject matter."
-  );
-  return;
-}
 
-      // If the server returned an error message, show it
+      const rawContent = JSON.stringify(data);
+      if (rawContent.includes("INVALID_SYLLABUS")) {
+        setError(
+          "⚠️ Please enter a valid syllabus with real topics. We couldn't detect any recognizable subject matter."
+        );
+        return;
+      }
+
       if (!response.ok) {
-  if (response.status === 429) {
-    setError("⚡ Too many requests right now — try again in a few minutes!");
-  } else {
-    setError(data.error || "Something went wrong. Please try again.");
-  }
-  return;
-}
-      // Store the questions so they appear on screen
+        if (response.status === 429) {
+          setError("⚡ Too many requests right now — try again in a few minutes!");
+        } else {
+          setError(data.error || "Something went wrong. Please try again.");
+        }
+        return;
+      }
+
       setQuestions(data.questions);
     } catch (err) {
       setError("Network error. Please check your connection and try again.");
     } finally {
-      setLoading(false); // Hide the loading spinner no matter what
+      setLoading(false);
     }
   }
+
+  const questionCount =
+    hours === "1" ? 10 : hours === "8" ? 30 : 20;
+
+  // Group paper questions by section
+  const paperSections = sections.map((sec, i) => {
+    const label = String.fromCharCode(65 + i);
+    const start = sections.slice(0, i).reduce((sum, s) => sum + s.count, 0);
+    const sectionQs = questions.slice(start, start + sec.count);
+    return { label, sec, sectionQs };
+  });
 
   return (
     <main className="min-h-screen bg-[#0f0f0f] text-white px-4 py-10 font-sans">
 
-      {/* ── App Header ── */}
+      {/* ── Header ── */}
       <div className="text-center mb-10">
         <h1 className="text-5xl font-black tracking-tight text-amber-400">
           CramAI
         </h1>
-        <p className="text-gray-400 mt-2 text-sm">
+        <p className="text-gray-400 mt-2 text-sm max-w-md mx-auto">
           Built for college students — paste your syllabus, get the most important exam questions instantly. Stop studying everything, study what matters.
         </p>
+      </div>
+
+      {/* ── Mode Toggle ── */}
+      <div className="max-w-xl mx-auto mb-6 flex gap-3">
+        <button
+          onClick={() => { setMode("important"); setQuestions([]); setError(""); }}
+          className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all duration-200 border ${
+            mode === "important"
+              ? "bg-amber-400 text-black border-amber-400"
+              : "bg-transparent text-gray-400 border-white/10 hover:border-amber-400/50 hover:text-white"
+          }`}
+        >
+          ⭐ Important Questions
+        </button>
+        <button
+          onClick={() => { setMode("paper"); setQuestions([]); setError(""); }}
+          className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all duration-200 border ${
+            mode === "paper"
+              ? "bg-amber-400 text-black border-amber-400"
+              : "bg-transparent text-gray-400 border-white/10 hover:border-amber-400/50 hover:text-white"
+          }`}
+        >
+          📄 Question Paper
+        </button>
       </div>
 
       {/* ── Input Card ── */}
@@ -88,72 +190,190 @@ if (rawContent.includes("INVALID_SYLLABUS")) {
           {syllabus.length} / 2000 characters
         </p>
 
-        {/* Hours dropdown */}
-        <label className="block text-sm font-semibold text-gray-300 mt-5 mb-2">
-          Hours Left Before Exam
-        </label>
-        <select
-          className="w-full bg-[#0f0f0f] text-white border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
-          value={hours}
-          onChange={(e) => setHours(e.target.value)}
-        >
-          <option value="1">1 Hour — Focus on only the most likely questions</option>
-          <option value="2">2 Hours — Key topics covered</option>
-          <option value="4">4 Hours — Broad coverage</option>
-          <option value="6">6 Hours — Detailed preparation</option>
-          <option value="8">8 Hours — Full exam prep</option>
-        </select>
-        {/* Exam Type dropdown */}
-<label className="block text-sm font-semibold text-gray-300 mt-5 mb-2">
-  Exam Type
-</label>
-<select
-  className="w-full bg-[#0f0f0f] text-white border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
-  value={examType}
-  onChange={(e) => setExamType(e.target.value)}
->
-  <option value="Mixed">Mixed — variety of question types</option>
-  <option value="MCQs only">MCQs only — 4 options with correct answer</option>
-  <option value="Coding questions only">Coding questions only — problem + expected output</option>
-  <option value="Short answer">Short answer — 2 to 3 lines</option>
-  <option value="Subjective">Subjective — detailed answers</option>
-  <option value="Numericals only">Numericals only — step by step calculations</option>
-</select>
+        {/* ── IMPORTANT QUESTIONS OPTIONS ── */}
+        {mode === "important" && (
+          <>
+            <label className="block text-sm font-semibold text-gray-300 mt-5 mb-2">
+              Hours Left Before Exam
+            </label>
+            <select
+              className="w-full bg-[#0f0f0f] text-white border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
+              value={hours}
+              onChange={(e) => setHours(e.target.value)}
+            >
+              <option value="1">1 Hour — Focus on only the most likely questions</option>
+              <option value="2">2 Hours — Key topics covered</option>
+              <option value="4">4 Hours — Broad coverage</option>
+              <option value="6">6 Hours — Detailed preparation</option>
+              <option value="8">8 Hours — Full exam prep</option>
+            </select>
 
-        {/* Generate button */}
+            <label className="block text-sm font-semibold text-gray-300 mt-5 mb-2">
+              Exam Type
+            </label>
+            <select
+              className="w-full bg-[#0f0f0f] text-white border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
+              value={examType}
+              onChange={(e) => setExamType(e.target.value)}
+            >
+              <option value="Mixed">Mixed — variety of question types</option>
+              <option value="MCQs only">MCQs only — 4 options with correct answer</option>
+              <option value="Coding questions only">Coding questions only — problem + expected output</option>
+              <option value="Short answer">Short answer — 2 to 3 lines</option>
+              <option value="Subjective">Subjective — detailed answers</option>
+              <option value="Numericals only">Numericals only — step by step calculations</option>
+            </select>
+          </>
+        )}
+
+        {/* ── QUESTION PAPER BUILDER ── */}
+        {mode === "paper" && (
+          <div className="mt-5">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm font-semibold text-gray-300">
+                Paper Sections
+              </label>
+              <span className="text-xs text-amber-400 font-bold bg-amber-400/10 px-3 py-1 rounded-full">
+                Total: {totalMarks} Marks
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {sections.map((sec, i) => {
+                const sectionLabel = String.fromCharCode(65 + i);
+                const marksOptions = MARKS_OPTIONS[sec.type];
+                return (
+                  <div
+                    key={sec.id}
+                    className="bg-[#0f0f0f] border border-white/10 rounded-xl p-4"
+                  >
+                    {/* Section header */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-md">
+                        SECTION {sectionLabel}
+                      </span>
+                      {sections.length > 1 && (
+                        <button
+                          onClick={() => removeSection(sec.id)}
+                          className="text-xs text-red-400 hover:text-red-300 transition"
+                        >
+                          ✕ Remove
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Section fields */}
+                    <div className="grid grid-cols-3 gap-2">
+                      {/* Question Type */}
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Type</p>
+                        <select
+                          className="w-full bg-[#1a1a1a] text-white border border-white/10 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400 transition"
+                          value={sec.type}
+                          onChange={(e) => updateSection(sec.id, "type", e.target.value)}
+                        >
+                          <option value="MCQ">MCQ</option>
+                          <option value="Short Answer">Short Answer</option>
+                          <option value="Long Answer">Long Answer</option>
+                          <option value="Numerical">Numerical</option>
+                          <option value="Coding">Coding</option>
+                        </select>
+                      </div>
+
+                      {/* Number of Questions */}
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Questions</p>
+                        <input
+                          type="number"
+                          min={1}
+                          max={30}
+                          className="w-full bg-[#1a1a1a] text-white border border-white/10 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400 transition"
+                          value={sec.count}
+                          onChange={(e) => updateSection(sec.id, "count", e.target.value)}
+                        />
+                      </div>
+
+                      {/* Marks per Question */}
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Marks each</p>
+                        <select
+                          className="w-full bg-[#1a1a1a] text-white border border-white/10 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400 transition"
+                          value={sec.marks}
+                          onChange={(e) => updateSection(sec.id, "marks", e.target.value)}
+                        >
+                          {marksOptions.map((m) => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Section subtotal */}
+                    <p className="text-right text-xs text-gray-600 mt-2">
+                      {sec.count} × {sec.marks} = <span className="text-gray-400">{sec.count * sec.marks} marks</span>
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Add Section button */}
+            <button
+              onClick={addSection}
+              disabled={sections.length >= 6}
+              className="mt-3 w-full py-2.5 rounded-xl border border-dashed border-white/20 text-gray-400 text-sm hover:border-amber-400/50 hover:text-amber-400 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            >
+              + Add Section
+            </button>
+
+            {/* Total marks summary */}
+            <div className="mt-4 flex justify-between items-center bg-amber-400/5 border border-amber-400/20 rounded-xl px-4 py-3">
+              <span className="text-sm text-gray-300">Total Marks</span>
+              <span className="text-xl font-black text-amber-400">{totalMarks}</span>
+            </div>
+          </div>
+        )}
+
+        {/* ── Generate Button ── */}
         <button
           onClick={handleGenerate}
           disabled={loading || syllabus.trim() === "" || syllabus.length > 2000}
           className="mt-6 w-full bg-amber-400 hover:bg-amber-300 disabled:bg-amber-400/30 disabled:cursor-not-allowed text-black font-bold py-4 rounded-xl text-base transition-all duration-200 active:scale-95"
         >
-          {loading ? "Generating…" : "Generate Exam Questions"}
+          {loading
+            ? "Generating…"
+            : mode === "paper"
+            ? "Generate Question Paper"
+            : "Generate Exam Questions"}
         </button>
 
         {/* Error message */}
         {error && (
-  <p className={`mt-4 text-sm text-center font-medium ${
-    error.startsWith("⚡")
-      ? "text-amber-400"
-      : "text-red-400"
-  }`}>
-    {error}
-  </p>
-)}
+          <p className={`mt-4 text-sm text-center font-medium ${
+            error.startsWith("⚡") ? "text-amber-400" : "text-red-400"
+          }`}>
+            {error}
+          </p>
+        )}
       </div>
 
       {/* ── Loading Spinner ── */}
       {loading && (
         <div className="max-w-xl mx-auto mt-10 flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-amber-400 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-400 text-sm">CramAI is predicting your questions...</p>
+          <p className="text-gray-400 text-sm">
+            {mode === "paper"
+              ? "CramAI is building your question paper..."
+              : "CramAI is predicting your questions..."}
+          </p>
         </div>
       )}
 
-      {/* ── Questions Cards ── */}
-      {questions.length > 0 && (
+      {/* ── IMPORTANT QUESTIONS OUTPUT ── */}
+      {questions.length > 0 && mode === "important" && (
         <div className="max-w-xl mx-auto mt-10">
           <h2 className="text-xl font-bold text-amber-400 mb-5">
-            📋 20 Predicted Exam Questions
+            📋 {questionCount} Predicted Exam Questions
           </h2>
 
           <div className="flex flex-col gap-4">
@@ -162,18 +382,13 @@ if (rawContent.includes("INVALID_SYLLABUS")) {
                 key={index}
                 className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-5 shadow-md"
               >
-                {/* Question number + text */}
                 <p className="text-sm font-bold text-amber-400 mb-1">
                   Q{index + 1}.
                 </p>
                 <p className="text-white text-sm font-medium leading-relaxed">
                   {item.question}
                 </p>
-
-                {/* Divider */}
                 <div className="border-t border-white/10 my-3" />
-
-                {/* Answer */}
                 <p className="text-gray-300 text-sm leading-relaxed">
                   <span className="text-green-400 font-semibold">Answer: </span>
                   {item.answer}
@@ -183,6 +398,75 @@ if (rawContent.includes("INVALID_SYLLABUS")) {
           </div>
 
           <p className="text-center text-gray-600 text-xs mt-8 mb-4">
+            Generated by CramAI · Good luck on your exam! 🍀
+          </p>
+        </div>
+      )}
+
+      {/* ── QUESTION PAPER OUTPUT ── */}
+      {questions.length > 0 && mode === "paper" && (
+        <div className="max-w-xl mx-auto mt-10">
+
+          {/* Paper header */}
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 text-center mb-6">
+            <h2 className="text-2xl font-black text-amber-400 tracking-wide">
+              QUESTION PAPER
+            </h2>
+            <p className="text-gray-400 text-sm mt-1">
+              Total Marks: <span className="text-white font-bold">{totalMarks}</span>
+              &nbsp;·&nbsp;
+              Total Questions: <span className="text-white font-bold">{questions.length}</span>
+            </p>
+            <div className="border-t border-white/10 mt-4 pt-4 flex justify-center gap-8 text-xs text-gray-500">
+              {sections.map((sec, i) => (
+                <span key={sec.id}>
+                  Section {String.fromCharCode(65 + i)}: {sec.count} × {sec.type} ({sec.count * sec.marks} marks)
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Sections */}
+          {paperSections.map(({ label, sec, sectionQs }) => (
+            <div key={label} className="mb-8">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-lg font-black text-amber-400">
+                  SECTION {label}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {sec.type} · {sec.count} Questions · {sec.marks} Mark{sec.marks !== 1 ? "s" : ""} Each
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                {sectionQs.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-5 shadow-md"
+                  >
+                    <div className="flex items-start justify-between mb-1">
+                      <p className="text-sm font-bold text-amber-400">
+                        Q{idx + 1}.
+                      </p>
+                      <span className="text-xs text-gray-600 bg-white/5 px-2 py-0.5 rounded-full">
+                        [{sec.marks} mark{sec.marks !== 1 ? "s" : ""}]
+                      </span>
+                    </div>
+                    <p className="text-white text-sm font-medium leading-relaxed whitespace-pre-line">
+                      {item.question}
+                    </p>
+                    <div className="border-t border-white/10 my-3" />
+                    <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">
+                      <span className="text-green-400 font-semibold">Answer: </span>
+                      {item.answer}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          <p className="text-center text-gray-600 text-xs mt-4 mb-4">
             Generated by CramAI · Good luck on your exam! 🍀
           </p>
         </div>
