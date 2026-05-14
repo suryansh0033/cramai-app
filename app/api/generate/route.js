@@ -31,9 +31,19 @@ export async function POST(request) {
     );
   }
 
+  // FIX 4 — Non-English syllabus detection
+  // If more than 30% of characters are non-ASCII, it's likely a non-English script
+  const nonLatinCount = (syllabus.match(/[^\x00-\x7F]/g) || []).length;
+  const nonLatinRatio = nonLatinCount / syllabus.trim().length;
+  if (nonLatinRatio > 0.3) {
+    return Response.json(
+      { error: "⚠️ Please paste your syllabus in English. Non-English text isn't supported yet — we're working on it!" },
+      { status: 400 }
+    );
+  }
+
   let prompt = "";
 
-  // ── QUESTION PAPER MODE ──
   if (mode === "paper") {
     if (!sections || sections.length === 0) {
       return Response.json(
@@ -43,29 +53,38 @@ export async function POST(request) {
     }
 
     const sectionDescriptions = sections.map((sec, i) => {
-      const label = String.fromCharCode(65 + i);
-      return `Section ${label}: ${sec.count} ${sec.type} question(s), ${sec.marks} mark(s) each`;
+      const sectionLabel = String.fromCharCode(65 + i);
+      return `Section ${sectionLabel}: ${sec.count} ${sec.type} question(s) of ${sec.marks} mark(s) each`;
     }).join("\n");
 
     const totalQuestions = sections.reduce((sum, sec) => sum + Number(sec.count), 0);
     const totalMarks = sections.reduce((sum, sec) => sum + Number(sec.count) * Number(sec.marks), 0);
 
-    // ✅ Lean prompt — plain numbered questions, no answers, no JSON schema
-    prompt = `You are an exam paper setter. Generate a university exam paper based on this syllabus:
-${syllabus}
+    prompt = `You are an exam paper setter. Syllabus: ${syllabus}
 
-Paper structure (Total: ${totalQuestions} questions, ${totalMarks} marks):
+If syllabus is gibberish, reply only: INVALID_SYLLABUS
+
+Generate exactly ${totalQuestions} questions for this paper structure:
 ${sectionDescriptions}
 
 Rules:
-- Output ONLY section headings and numbered questions. No answers, no explanations, no extra text.
-- Format each section as: "SECTION A" then numbered questions like "1. Question text"
-- For MCQs: include options (a) (b) (c) (d) inside the question
-- For Numericals: include all required values in the question
-- Spread questions across syllabus topics. No repeats.
-- Do NOT include any answers or hints.`;
+- Add [Unit - Topic] before each question
+- MCQ: include 4 options labeled A) B) C) D) each on a new line in the question text
+- Short Answer: clear concise question only
+- Long Answer: detailed question only
+- Numerical: include all required values/data in the question
+- Coding: problem statement with sample input/output in the question
+- Spread questions across all syllabus units, no repeats
+- Every question must be completely unique — do NOT repeat the same concept, topic, or problem type twice
+- NEVER include the answer to a question within the question itself
+- Use ONLY the exact topics and technologies mentioned in the syllabus. Do NOT substitute similar alternatives (e.g., if syllabus says 8085, do not use 8086)
+- Do NOT include any answers
 
-  // ── IMPORTANT QUESTIONS MODE ──
+Return ONLY a JSON array, no markdown:
+[{"section":"A","type":"MCQ","marks":1,"question":"[Unit 1 - Topic] Question?\nA) ...\nB) ...\nC) ...\nD) ..."}]
+
+Generate all ${totalQuestions} objects now.`;
+
   } else {
     const questionCount =
       hours === "1" ? 10 :
@@ -79,13 +98,22 @@ Rules:
         ? "Mix of easy (60%) and medium (40%) difficulty questions. Cover all important topics."
         : "Mix of easy (30%), medium (40%), and hard (30%) questions. Cover everything in depth.";
 
+    // FIX 1 & 2 — MCQs only now has a strict format with an example, and all format instructions reinforced
     const formatInstructions = {
       "Mixed": "Generate a smart mix of MCQs, short answer, and descriptive questions based on the topic type.",
-      "MCQs only": `ALL ${questionCount} must be MCQs. Each must have 4 options labeled A) B) C) D) inside the question text.`,
-      "Coding questions only": `ALL ${questionCount} must be coding problems. Each question describes a problem with sample input/output.`,
-      "Short answer": `ALL ${questionCount} must be short answer questions.`,
-      "Subjective": `ALL ${questionCount} must be subjective questions requiring detailed explanation.`,
-      "Numericals only": `ALL ${questionCount} must be numerical problems with all required values provided in the question.`,
+      "MCQs only": `ALL ${questionCount} questions MUST be MCQs. This is NON-NEGOTIABLE and overrides everything else including subject type.
+Every single question must have exactly 4 options on separate lines labeled A) B) C) D).
+Format EVERY question exactly like this example:
+[Unit 1 - Topic] What is the unit of force?
+A) Joule
+B) Newton
+C) Watt
+D) Pascal
+Do NOT generate numericals, coding problems, or plain questions without options. ONLY MCQs with 4 labeled options. A question without A) B) C) D) options is INVALID.`,
+      "Coding questions only": `ALL ${questionCount} must be coding problems. Each question describes a problem with sample input/output. No other question type is allowed.`,
+      "Short answer": `ALL ${questionCount} must be short answer questions. No MCQs, no coding, no numericals.`,
+      "Subjective": `ALL ${questionCount} must be subjective questions requiring detailed explanation. No MCQs, no coding, no numericals.`,
+      "Numericals only": `ALL ${questionCount} must be numerical problems with all required values provided in the question. No MCQs, no coding, no theory questions.`,
     };
 
     prompt = `You are an expert exam question predictor for college students.
@@ -103,19 +131,24 @@ Identify all units/topics. Give more questions to heavier units. Every unit gets
 STEP 2 — DIFFICULTY:
 ${difficultyGuide}
 
-STEP 3 — SUBJECT TYPE:
+STEP 3 — SUBJECT TYPE (applies ONLY when Format is Mixed):
 If MATHEMATICS: all numerical problems.
 If MIXED (Physics, Chemistry, Electronics, Engineering): split numerical and conceptual proportionally.
 If PURE THEORY: all conceptual and descriptive questions.
 
-STEP 4 — FORMAT:
+⚠️ OVERRIDE RULE: If the FORMAT in STEP 4 is anything other than Mixed (e.g. MCQs only, Coding only, Numericals only, Short answer, Subjective), STEP 3 is completely ignored. The FORMAT in STEP 4 takes ABSOLUTE PRIORITY.
+
+STEP 4 — FORMAT (THIS OVERRIDES STEP 3 IF NOT MIXED):
 ${formatInstructions[examType] || formatInstructions["Mixed"]}
 
-STEP 5 — QUESTION FORMAT:
-Always start each question with the unit label like: [Unit 2 - Fluid Mechanics]
-For MCQs include all 4 options A) B) C) D) inside the question field.
-For Numericals include all required values in the question.
-Do NOT include any answers.
+STEP 5 — QUESTION FORMAT RULES:
+- Always start each question with the unit label like: [Unit 2 - Fluid Mechanics]
+- For MCQs include all 4 options A) B) C) D) each on a separate line inside the question field
+- For Numericals include all required values in the question
+- Do NOT include any answers
+- FIX 3: Every question must be completely unique — do NOT repeat the same concept, topic, formula, or problem type twice. Each question must test something genuinely different
+- NEVER include the answer to a question within the question itself (e.g. do not say "A 40 kg block... what is its mass?")
+- FIX 5: Use ONLY the exact topics and technologies mentioned in the syllabus. Do NOT substitute similar alternatives
 
 Return ONLY a valid JSON array. No explanation, no markdown, no backticks:
 [
@@ -135,6 +168,7 @@ Generate all ${questionCount} questions now.`;
 
     if (!apiKey) {
       console.warn(`GROQ_API_KEY_${i + 1} is not set — skipping.`);
+      lastError = new Error("API key not set");
       continue;
     }
 
@@ -147,37 +181,21 @@ Generate all ${questionCount} questions now.`;
         model: "llama-3.1-8b-instant",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.85,
-        // ✅ Paper mode returns plain text, so 3000 tokens is plenty
-        max_tokens: mode === "paper" ? 3000 : 4000,
+        max_tokens: mode === "paper" ? 8000 : 4000,
       });
 
-      const rawText = completion.choices[0].message.content?.trim() ?? "";
+      let rawText = completion.choices[0].message.content;
+      rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
 
-      // ── PAPER MODE: return plain text directly ──
-      if (mode === "paper") {
-        if (rawText.includes("INVALID_SYLLABUS")) {
-          return Response.json(
-            { error: "⚠️ Please enter a valid syllabus with real topics. We couldn't detect any recognizable subject matter." },
-            { status: 400 }
-          );
-        }
-        console.log(`Success with GROQ_API_KEY_${i + 1} — paper mode`);
-        // Return as { paperText: "..." } so the frontend can render it directly
-        return Response.json({ paperText: rawText });
-      }
-
-      // ── IMPORTANT QUESTIONS MODE: parse JSON as before ──
-      let cleaned = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
-
-      if (cleaned.includes("INVALID_SYLLABUS")) {
+      if (rawText.includes("INVALID_SYLLABUS")) {
         return Response.json(
           { error: "⚠️ Please enter a valid syllabus with real topics. We couldn't detect any recognizable subject matter." },
           { status: 400 }
         );
       }
 
-      const start = cleaned.indexOf("[");
-      const end = cleaned.lastIndexOf("]");
+      const start = rawText.indexOf("[");
+      const end = rawText.lastIndexOf("]");
 
       if (start === -1 || end === -1) {
         return Response.json(
@@ -186,9 +204,15 @@ Generate all ${questionCount} questions now.`;
         );
       }
 
-      const cleanJson = cleaned.slice(start, end + 1);
+      const cleanJson = rawText.slice(start, end + 1);
       const sanitized = cleanJson.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
       const questions = JSON.parse(sanitized);
+
+      if (mode === "paper") {
+        const totalNeeded = sections.reduce((sum, sec) => sum + Number(sec.count), 0);
+        console.log(`Success with GROQ_API_KEY_${i + 1} — got ${questions.length} questions`);
+        return Response.json({ questions: questions.slice(0, totalNeeded) });
+      }
 
       const questionCount =
         hours === "1" ? 10 :
@@ -248,16 +272,13 @@ Generate all ${questionCount} questions now.`;
         continue;
       }
 
-      // ✅ Only match genuine context-length errors — NOT generic "token" mentions
-      //    which appear in unrelated Groq errors and cause false positives.
-      const errorStr = JSON.stringify(error).toLowerCase();
       const isTooLong =
         error?.status === 413 ||
-        errorStr.includes("context_length_exceeded") ||
-        errorStr.includes("request_too_large") ||
-        errorStr.includes("maximum context length") ||
-        errorStr.includes("reduce the length") ||
-        (errorStr.includes("too long") && !errorStr.includes("rate limit"));
+        error?.message?.toLowerCase().includes("context") ||
+        error?.message?.toLowerCase().includes("too long") ||
+        error?.message?.toLowerCase().includes("token") ||
+        JSON.stringify(error).toLowerCase().includes("context_length") ||
+        JSON.stringify(error).toLowerCase().includes("request_too_large");
 
       if (isTooLong) {
         return Response.json(
