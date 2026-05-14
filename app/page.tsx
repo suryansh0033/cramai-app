@@ -14,7 +14,15 @@ type Section = {
   marks: number;
 };
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+
+// ── Cycling messages shown during loading ──
+const LOADING_MESSAGES = [
+  "Analyzing your syllabus...",
+  "Identifying important topics...",
+  "Generating questions...",
+  "Almost ready...",
+];
 
 const MARKS_OPTIONS: Record<string, number[]> = {
   "MCQ": [0.5, 1, 2],
@@ -29,9 +37,10 @@ export default function Home() {
   const [hours, setHours] = useState("2");
   const [examType, setExamType] = useState("Mixed");
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [paperText, setPaperText] = useState(""); // ✅ plain text for paper mode
+  const [paperText, setPaperText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
 
   const [mode, setMode] = useState<"important" | "paper">("important");
 
@@ -40,16 +49,42 @@ export default function Home() {
   ]);
   const [nextId, setNextId] = useState(2);
 
-  const totalMarks = sections.reduce(
-    (sum, sec) => sum + sec.count * sec.marks,
-    0
-  );
+  // Refs so we can clear timers/abort from anywhere without stale closures
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // ── Cycle loading message every 2s while loading ──
+  useEffect(() => {
+    if (loading) {
+      setLoadingMsgIndex(0);
+      intervalRef.current = setInterval(() => {
+        setLoadingMsgIndex((i) => (i + 1) % LOADING_MESSAGES.length);
+      }, 2000);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [loading]);
+
+  // ── Stop everything: clears timers, aborts fetch, re-enables button ──
+  function stopWithError(msg: string) {
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+    if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }
+    setLoading(false);  // ← this re-enables the Generate button immediately
+    setError(msg);
+  }
+
+  const totalMarks = sections.reduce((sum, sec) => sum + sec.count * sec.marks, 0);
 
   function addSection() {
-    setSections((prev) => [
-      ...prev,
-      { id: nextId, type: "MCQ", count: 5, marks: 1 },
-    ]);
+    setSections((prev) => [...prev, { id: nextId, type: "MCQ", count: 5, marks: 1 }]);
     setNextId((n) => n + 1);
   }
 
@@ -74,15 +109,22 @@ export default function Home() {
     setLoading(true);
     setError("");
     setQuestions([]);
-    setPaperText(""); // ✅ reset paper text too
+    setPaperText("");
 
-    if (syllabus.length > 2000) return;
+    if (syllabus.length > 2000) { setLoading(false); return; }
 
     if (mode === "paper" && sections.length === 0) {
-      setError("Please add at least one section before generating.");
-      setLoading(false);
+      stopWithError("Please add at least one section before generating.");
       return;
     }
+
+    // ── Wire up AbortController for the 15s timeout ──
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    timeoutRef.current = setTimeout(() => {
+      stopWithError("⚠️ Taking too long — servers are busy. Please try again!");
+    }, 15000);
 
     try {
       const body =
@@ -94,51 +136,52 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: controller.signal,  // ← aborted after 15s
       });
+
+      // Got a response in time — clear the timeout
+      if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
 
       const data = await response.json();
 
-      const rawContent = JSON.stringify(data);
-      if (rawContent.includes("INVALID_SYLLABUS")) {
-        setError(
-          "⚠️ Please enter a valid syllabus with real topics. We couldn't detect any recognizable subject matter."
-        );
+      if (JSON.stringify(data).includes("INVALID_SYLLABUS")) {
+        stopWithError("⚠️ Please enter a valid syllabus with real topics. We couldn't detect any recognizable subject matter.");
         return;
       }
 
       if (!response.ok) {
-        if (response.status === 429) {
-          setError("⚡ Too many requests right now — try again in a few minutes!");
-        } else {
-          setError(data.error || "Something went wrong. Please try again.");
-        }
+        stopWithError(
+          response.status === 429
+            ? "⚡ Too many requests right now — try again in a few minutes!"
+            : data.error || "Something went wrong. Please try again."
+        );
         return;
       }
 
-      // ✅ Paper mode: use plain text. Important mode: use questions array.
+      // ── Success ──
+      setLoading(false);
       if (mode === "paper") {
         setPaperText(data.paperText || "");
       } else {
         setQuestions(data.questions);
       }
-    } catch (err) {
-      setError("Network error. Please check your connection and try again.");
-    } finally {
-      setLoading(false);
+    } catch (err: any) {
+      // AbortError is thrown when our timeout calls controller.abort().
+      // stopWithError already ran in that case, so don't double-set the error.
+      if (err?.name !== "AbortError") {
+        stopWithError("Network error. Please check your connection and try again.");
+      }
     }
   }
 
-  const questionCount =
-    hours === "1" ? 10 : hours === "8" ? 30 : 20;
+  const questionCount = hours === "1" ? 10 : hours === "8" ? 30 : 20;
 
   return (
     <main className="min-h-screen bg-[#0f0f0f] text-white px-4 py-10 font-sans">
 
       {/* ── Header ── */}
       <div className="text-center mb-10">
-        <h1 className="text-5xl font-black tracking-tight text-amber-400">
-          CramAI
-        </h1>
+        <h1 className="text-5xl font-black tracking-tight text-amber-400">CramAI</h1>
         <p className="text-gray-400 mt-2 text-sm max-w-md mx-auto">
           Built for college students — paste your syllabus, get the most important exam questions instantly. Stop studying everything, study what matters.
         </p>
@@ -171,10 +214,7 @@ export default function Home() {
       {/* ── Input Card ── */}
       <div className="max-w-xl mx-auto bg-[#1a1a1a] rounded-2xl p-6 shadow-xl border border-white/10">
 
-        {/* Syllabus textarea */}
-        <label className="block text-sm font-semibold text-gray-300 mb-2">
-          Your Syllabus
-        </label>
+        <label className="block text-sm font-semibold text-gray-300 mb-2">Your Syllabus</label>
         <textarea
           className="w-full bg-[#0f0f0f] text-white border border-white/10 rounded-xl p-4 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder-gray-600 transition"
           rows={8}
@@ -189,9 +229,7 @@ export default function Home() {
         {/* ── IMPORTANT QUESTIONS OPTIONS ── */}
         {mode === "important" && (
           <>
-            <label className="block text-sm font-semibold text-gray-300 mt-5 mb-2">
-              Hours Left Before Exam
-            </label>
+            <label className="block text-sm font-semibold text-gray-300 mt-5 mb-2">Hours Left Before Exam</label>
             <select
               className="w-full bg-[#0f0f0f] text-white border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
               value={hours}
@@ -204,9 +242,7 @@ export default function Home() {
               <option value="8">8 Hours — Full exam prep</option>
             </select>
 
-            <label className="block text-sm font-semibold text-gray-300 mt-5 mb-2">
-              Exam Type
-            </label>
+            <label className="block text-sm font-semibold text-gray-300 mt-5 mb-2">Exam Type</label>
             <select
               className="w-full bg-[#0f0f0f] text-white border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
               value={examType}
@@ -226,9 +262,7 @@ export default function Home() {
         {mode === "paper" && (
           <div className="mt-5">
             <div className="flex items-center justify-between mb-3">
-              <label className="text-sm font-semibold text-gray-300">
-                Paper Sections
-              </label>
+              <label className="text-sm font-semibold text-gray-300">Paper Sections</label>
               <span className="text-xs text-amber-400 font-bold bg-amber-400/10 px-3 py-1 rounded-full">
                 Total: {totalMarks} Marks
               </span>
@@ -239,10 +273,7 @@ export default function Home() {
                 const sectionLabel = String.fromCharCode(65 + i);
                 const marksOptions = MARKS_OPTIONS[sec.type];
                 return (
-                  <div
-                    key={sec.id}
-                    className="bg-[#0f0f0f] border border-white/10 rounded-xl p-4"
-                  >
+                  <div key={sec.id} className="bg-[#0f0f0f] border border-white/10 rounded-xl p-4">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-md">
                         SECTION {sectionLabel}
@@ -256,7 +287,6 @@ export default function Home() {
                         </button>
                       )}
                     </div>
-
                     <div className="grid grid-cols-3 gap-2">
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Type</p>
@@ -272,7 +302,6 @@ export default function Home() {
                           <option value="Coding">Coding</option>
                         </select>
                       </div>
-
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Questions</p>
                         <input
@@ -284,7 +313,6 @@ export default function Home() {
                           onChange={(e) => updateSection(sec.id, "count", e.target.value)}
                         />
                       </div>
-
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Marks each</p>
                         <select
@@ -298,7 +326,6 @@ export default function Home() {
                         </select>
                       </div>
                     </div>
-
                     <p className="text-right text-xs text-gray-600 mt-2">
                       {sec.count} × {sec.marks} = <span className="text-gray-400">{sec.count * sec.marks} marks</span>
                     </p>
@@ -328,7 +355,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* ── Generate Button ── */}
+        {/* ── Generate Button — re-enabled automatically on error/timeout ── */}
         <button
           onClick={handleGenerate}
           disabled={loading || syllabus.trim() === "" || syllabus.length > 2000}
@@ -351,15 +378,44 @@ export default function Home() {
         )}
       </div>
 
-      {/* ── Loading Spinner ── */}
+      {/* ── Loading State — spinner + cycling messages + progress dots ── */}
       {loading && (
-        <div className="max-w-xl mx-auto mt-10 flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-amber-400 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-400 text-sm">
-            {mode === "paper"
-              ? "CramAI is building your question paper..."
-              : "CramAI is predicting your questions..."}
-          </p>
+        <div className="max-w-xl mx-auto mt-10">
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl px-6 py-8 flex flex-col items-center gap-5">
+
+            {/* Double-ring spinner */}
+            <div className="relative w-14 h-14">
+              <div className="absolute inset-0 rounded-full border-4 border-white/10" />
+              <div className="absolute inset-0 rounded-full border-4 border-amber-400 border-t-transparent animate-spin" />
+            </div>
+
+            {/* Cycling message — key change causes re-render = natural fade via animate-pulse */}
+            <div className="text-center">
+              <p
+                key={loadingMsgIndex}
+                className="text-white font-semibold text-sm animate-pulse"
+              >
+                {LOADING_MESSAGES[loadingMsgIndex]}
+              </p>
+              <p className="text-gray-600 text-xs mt-2">This usually takes 5–10 seconds</p>
+            </div>
+
+            {/* Step dots — amber dot tracks current message */}
+            <div className="flex gap-2">
+              {LOADING_MESSAGES.map((_, i) => (
+                <div
+                  key={i}
+                  className={`w-2 h-2 rounded-full transition-all duration-500 ${
+                    i === loadingMsgIndex
+                      ? "bg-amber-400 scale-125"
+                      : i < loadingMsgIndex
+                      ? "bg-amber-400/40"
+                      : "bg-white/15"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -369,23 +425,16 @@ export default function Home() {
           <h2 className="text-xl font-bold text-amber-400 mb-5">
             📋 {questionCount} Predicted Exam Questions
           </h2>
-
           <div className="flex flex-col gap-4">
             {questions.map((item, index) => (
-              <div
-                key={index}
-                className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-5 shadow-md"
-              >
-                <p className="text-sm font-bold text-amber-400 mb-1">
-                  Q{index + 1}.
-                </p>
+              <div key={index} className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-5 shadow-md">
+                <p className="text-sm font-bold text-amber-400 mb-1">Q{index + 1}.</p>
                 <p className="text-white text-sm font-medium leading-relaxed whitespace-pre-line">
                   {item.question}
                 </p>
               </div>
             ))}
           </div>
-
           <p className="text-center text-gray-600 text-xs mt-8 mb-4">
             Generated by CramAI · Good luck on your exam! 🍀
           </p>
@@ -393,22 +442,15 @@ export default function Home() {
       )}
 
       {/* ── QUESTION PAPER OUTPUT ── */}
-      {/* ✅ Renders plain text from AI — no JSON parsing, no answer buttons, no section slicing */}
       {paperText && mode === "paper" && (
         <div className="max-w-xl mx-auto mt-10">
-
-          {/* Paper header */}
           <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 text-center mb-6">
-            <h2 className="text-2xl font-black text-amber-400 tracking-wide">
-              QUESTION PAPER
-            </h2>
+            <h2 className="text-2xl font-black text-amber-400 tracking-wide">QUESTION PAPER</h2>
             <p className="text-gray-400 text-sm mt-1">
               Total Marks: <span className="text-white font-bold">{totalMarks}</span>
               &nbsp;·&nbsp;
               Total Questions:{" "}
-              <span className="text-white font-bold">
-                {sections.reduce((s, sec) => s + sec.count, 0)}
-              </span>
+              <span className="text-white font-bold">{sections.reduce((s, sec) => s + sec.count, 0)}</span>
             </p>
             <div className="border-t border-white/10 mt-4 pt-4 flex flex-wrap justify-center gap-4 text-xs text-gray-500">
               {sections.map((sec, i) => (
@@ -418,14 +460,11 @@ export default function Home() {
               ))}
             </div>
           </div>
-
-          {/* ✅ Plain text paper — whitespace-pre-wrap preserves section headings and numbering */}
           <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 shadow-md">
             <pre className="text-white text-sm font-sans leading-relaxed whitespace-pre-wrap">
               {paperText}
             </pre>
           </div>
-
           <p className="text-center text-gray-600 text-xs mt-6 mb-4">
             Generated by CramAI · Good luck on your exam! 🍀
           </p>
