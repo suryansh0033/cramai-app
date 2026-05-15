@@ -164,9 +164,11 @@ Return ONLY a valid JSON array. No explanation, no markdown, no backticks:
   }
 ]
 
-The array MUST contain exactly ${questionCount} objects. Count before finalizing.
-Generate all ${questionCount} questions now.`;
-  }
+CRITICAL COUNT RULE: The array MUST contain EXACTLY ${questionCount} objects — no more, no less.
+Number each question mentally as you write it: 1, 2, 3... up to ${questionCount}.
+Do NOT stop early. Do NOT summarize. Write every single question out in full.
+After writing, count the array. If it has fewer than ${questionCount} objects, add more before returning.
+Generate all ${questionCount} questions now.
 
   let lastError = null;
 
@@ -187,10 +189,10 @@ Generate all ${questionCount} questions now.`;
       const completion = await groq.chat.completions.create({
         model: "llama-3.1-8b-instant",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.85,
+        temperature: 0.75,
         max_tokens: mode === "paper"
   ? Math.min(sections.reduce((sum, sec) => sum + Number(sec.count), 0) * 250 + 500, 4000)
-  : 4000,
+  : questionCount === 30 ? 6000 : 4000,
       });
 
       let rawText = completion.choices[0].message.content;
@@ -240,7 +242,7 @@ Generate all ${questionCount} questions now.`;
         const retryCompletion = await groq.chat.completions.create({
           model: "llama-3.1-8b-instant",
           messages: [{ role: "user", content: prompt }],
-          temperature: 0.9,
+          temperature: 0.75,
           max_tokens: 4000,
         });
 
