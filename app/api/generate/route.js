@@ -23,13 +23,20 @@ export async function POST(request) {
     );
   }
 
-  const realWords = syllabus.trim().match(/\b[a-zA-Z]{3,}\b/g);
-  if (!realWords || realWords.length < 3) {
-    return Response.json(
-      { error: "⚠️ Please enter a valid syllabus with real topics. We couldn't detect any recognizable subject matter." },
-      { status: 400 }
-    );
-  }
+  const allWords = syllabus.trim().match(/\b[a-zA-Z]{3,}\b/g) || [];
+const realWords = allWords.filter((w) => {
+  const lower = w.toLowerCase();
+  const hasVowel = /[aeiou]/.test(lower);
+  const hasConsonant = /[bcdfghjklmnpqrstvwxyz]/.test(lower);
+  const notRepeated = !/^(.)\1+$/.test(lower);
+  return hasVowel && hasConsonant && notRepeated;
+});
+if (realWords.length < 5) {
+  return Response.json(
+    { error: "⚠️ Please enter a valid syllabus with real topics. We couldn't detect any recognizable subject matter." },
+    { status: 400 }
+  );
+}
 
   // FIX 4 — Non-English syllabus detection
   // If more than 30% of characters are non-ASCII, it's likely a non-English script
