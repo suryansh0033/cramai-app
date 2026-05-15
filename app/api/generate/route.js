@@ -73,19 +73,21 @@ ${sectionDescriptions}
 
 Rules:
 - Add [Unit - Topic] before each question
-- - MCQ: include 4 options labeled A) B) C) D) separated by \n inside the question string (use the literal characters backslash-n, NOT actual line breaks)
+- MCQ: include 4 options labeled A) B) C) D) separated by \\n inside the question string (use the literal characters backslash-n, NOT actual line breaks)
 - Short Answer: clear concise question only
 - Long Answer: detailed question only
 - Numerical: include all required values/data in the question
 - Coding: problem statement with sample input/output in the question
 - Spread questions across all syllabus units
-- - Every question must be completely unique — do NOT repeat the same concept, topic, formula, or problem type twice, even in different wording or phrasing
+- Every question must be completely unique — do NOT repeat the same concept, topic, or problem type twice, even in different wording or phrasing
+- Before finalizing, scan all questions and remove any duplicates or near-duplicates
 - Do NOT ask "Draw", "Sketch", or "Show the diagram of" anything — this is a text-based app. Replace any such question with "Explain" or "Describe" instead
+- NEVER include the answer to a question within the question itself
 - Use ONLY the exact topics and technologies mentioned in the syllabus. Do NOT substitute similar alternatives
 - Do NOT include any answers
 
 Return ONLY a JSON array, no markdown:
-[{"section":"A","type":"MCQ","marks":1,"question":"[Unit 1 - Topic] Question?\nA) ...\nB) ...\nC) ...\nD) ..."}]
+[{"section":"A","type":"MCQ","marks":1,"question":"[Unit 1 - Topic] Question?\\nA) ...\\nB) ...\\nC) ...\\nD) ..."}]
 
 Generate all ${totalQuestions} objects now.`;
 
@@ -150,8 +152,9 @@ STEP 5 — QUESTION FORMAT RULES:
 - For MCQs include all 4 options A) B) C) D) each on a separate line inside the question field
 - For Numericals include all required values in the question
 - Do NOT include any answers
-- Every question must be completely unique — do NOT repeat the same concept, topic, formula, or problem type twice- Every question must be completely unique — do NOT repeat the same concept, topic, formula, or problem type twice, even in different wording or phrasing
-- Do NOT ask "Draw", "Sketch", or "Show the diagram of" anything — this is a text-based app. Replace any such question with "Explain" or "Describe" instead- Use ONLY the exact topics and technologies mentioned in the syllabus. Do NOT substitute similar alternatives
+- Every question must be completely unique — do NOT repeat the same concept, topic, formula, or problem type twice, even in different wording or phrasing
+- Do NOT ask "Draw", "Sketch", or "Show the diagram of" anything — this is a text-based app. Replace any such question with "Explain" or "Describe" instead
+- Use ONLY the exact topics and technologies mentioned in the syllabus. Do NOT substitute similar alternatives
 
 Return ONLY a valid JSON array. No explanation, no markdown, no backticks:
 [
@@ -217,23 +220,23 @@ Generate all ${questionCount} questions now.`;
       }
 
       const cleanJson = rawText.slice(start, end + 1);
-const sanitized = cleanJson.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
+      const sanitized = cleanJson.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
 
-let questions;
-try {
-  questions = JSON.parse(sanitized);
-} catch (e) {
-  const aggressive = sanitized
-    .replace(/[\r\n\t]/g, " ")
-    .replace(/\s{2,}/g, " ");
-  try {
-    questions = JSON.parse(aggressive);
-  } catch (e2) {
-    console.warn(`Key ${i + 1} JSON parse failed. Trying next key...`);
-    lastError = new Error("JSON parse failed");
-    continue;
-  }
-}
+      let questions;
+      try {
+        questions = JSON.parse(sanitized);
+      } catch (e) {
+        const aggressive = sanitized
+          .replace(/[\r\n\t]/g, " ")
+          .replace(/\s{2,}/g, " ");
+        try {
+          questions = JSON.parse(aggressive);
+        } catch (e2) {
+          console.warn(`Key ${i + 1} JSON parse failed. Trying next key...`);
+          lastError = new Error("JSON parse failed");
+          continue;
+        }
+      }
 
       if (mode === "paper") {
         const totalNeeded = sections.reduce((sum, sec) => sum + Number(sec.count), 0);
@@ -265,12 +268,16 @@ try {
 
         if (s !== -1 && e !== -1) {
           const retryJson = retryRaw.slice(s, e + 1).replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
-          const retryParsed = JSON.parse(retryJson);
-          if (retryParsed.length >= questionCount) {
-            console.log(`Retry ${retry + 1} succeeded.`);
-            return Response.json({ questions: retryParsed.slice(0, questionCount) });
+          try {
+            const retryParsed = JSON.parse(retryJson);
+            if (retryParsed.length >= questionCount) {
+              console.log(`Retry ${retry + 1} succeeded.`);
+              return Response.json({ questions: retryParsed.slice(0, questionCount) });
+            }
+            retryQuestions = retryParsed;
+          } catch (retryParseErr) {
+            console.warn(`Retry ${retry + 1} JSON parse failed. Continuing...`);
           }
-          retryQuestions = retryParsed;
         }
       }
 
