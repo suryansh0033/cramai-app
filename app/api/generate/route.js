@@ -24,22 +24,20 @@ export async function POST(request) {
   }
 
   const allWords = syllabus.trim().match(/\b[a-zA-Z]{3,}\b/g) || [];
-const realWords = allWords.filter((w) => {
-  const lower = w.toLowerCase();
-  const hasVowel = /[aeiou]/.test(lower);
-  const hasConsonant = /[bcdfghjklmnpqrstvwxyz]/.test(lower);
-  const notRepeated = !/^(.)\1+$/.test(lower);
-  return hasVowel && hasConsonant && notRepeated;
-});
-if (realWords.length < 5) {
-  return Response.json(
-    { error: "⚠️ Please enter a valid syllabus with real topics. We couldn't detect any recognizable subject matter." },
-    { status: 400 }
-  );
-}
+  const realWords = allWords.filter((w) => {
+    const lower = w.toLowerCase();
+    const hasVowel = /[aeiou]/.test(lower);
+    const hasConsonant = /[bcdfghjklmnpqrstvwxyz]/.test(lower);
+    const notRepeated = !/^(.)\1+$/.test(lower);
+    return hasVowel && hasConsonant && notRepeated;
+  });
+  if (realWords.length < 5) {
+    return Response.json(
+      { error: "⚠️ Please enter a valid syllabus with real topics. We couldn't detect any recognizable subject matter." },
+      { status: 400 }
+    );
+  }
 
-  // FIX 4 — Non-English syllabus detection
-  // If more than 30% of characters are non-ASCII, it's likely a non-English script
   const nonLatinCount = (syllabus.match(/[^\x00-\x7F]/g) || []).length;
   const nonLatinRatio = nonLatinCount / syllabus.trim().length;
   if (nonLatinRatio > 0.3) {
@@ -65,7 +63,6 @@ if (realWords.length < 5) {
     }).join("\n");
 
     const totalQuestions = sections.reduce((sum, sec) => sum + Number(sec.count), 0);
-    const totalMarks = sections.reduce((sum, sec) => sum + Number(sec.count) * Number(sec.marks), 0);
 
     prompt = `You are an exam paper setter. Syllabus: ${syllabus}
 
@@ -81,10 +78,11 @@ Rules:
 - Long Answer: detailed question only
 - Numerical: include all required values/data in the question
 - Coding: problem statement with sample input/output in the question
-- Spread questions across all syllabus units, no repeats
+- Spread questions across all syllabus units
 - Every question must be completely unique — do NOT repeat the same concept, topic, or problem type twice
+- Before finalizing, scan all questions and remove any duplicates or near-duplicates
 - NEVER include the answer to a question within the question itself
-- Use ONLY the exact topics and technologies mentioned in the syllabus. Do NOT substitute similar alternatives (e.g., if syllabus says 8085, do not use 8086)
+- Use ONLY the exact topics and technologies mentioned in the syllabus. Do NOT substitute similar alternatives
 - Do NOT include any answers
 
 Return ONLY a JSON array, no markdown:
@@ -105,7 +103,6 @@ Generate all ${totalQuestions} objects now.`;
         ? "Mix of easy (60%) and medium (40%) difficulty questions. Cover all important topics."
         : "Mix of easy (30%), medium (40%), and hard (30%) questions. Cover everything in depth.";
 
-    // FIX 1 & 2 — MCQs only now has a strict format with an example, and all format instructions reinforced
     const formatInstructions = {
       "Mixed": "Generate a smart mix of MCQs, short answer, and descriptive questions based on the topic type.",
       "MCQs only": `ALL ${questionCount} questions MUST be MCQs. This is NON-NEGOTIABLE and overrides everything else including subject type.
@@ -134,6 +131,7 @@ Generate EXACTLY ${questionCount} predicted exam questions. No answers — quest
 
 STEP 1 — UNIT ANALYSIS:
 Identify all units/topics. Give more questions to heavier units. Every unit gets at least 1 question.
+Every question must be completely unique — no two questions can ask the same thing, even in different wording. Before finalizing, scan all questions and remove any duplicates or near-duplicates.
 
 STEP 2 — DIFFICULTY:
 ${difficultyGuide}
@@ -143,7 +141,7 @@ If MATHEMATICS: all numerical problems.
 If MIXED (Physics, Chemistry, Electronics, Engineering): split numerical and conceptual proportionally.
 If PURE THEORY: all conceptual and descriptive questions.
 
-⚠️ OVERRIDE RULE: If the FORMAT in STEP 4 is anything other than Mixed (e.g. MCQs only, Coding only, Numericals only, Short answer, Subjective), STEP 3 is completely ignored. The FORMAT in STEP 4 takes ABSOLUTE PRIORITY.
+⚠️ OVERRIDE RULE: If the FORMAT in STEP 4 is anything other than Mixed, STEP 3 is completely ignored. The FORMAT in STEP 4 takes ABSOLUTE PRIORITY.
 
 STEP 4 — FORMAT (THIS OVERRIDES STEP 3 IF NOT MIXED):
 ${formatInstructions[examType] || formatInstructions["Mixed"]}
@@ -153,9 +151,9 @@ STEP 5 — QUESTION FORMAT RULES:
 - For MCQs include all 4 options A) B) C) D) each on a separate line inside the question field
 - For Numericals include all required values in the question
 - Do NOT include any answers
-- FIX 3: Every question must be completely unique — do NOT repeat the same concept, topic, formula, or problem type twice. Each question must test something genuinely different
-- NEVER include the answer to a question within the question itself (e.g. do not say "A 40 kg block... what is its mass?")
-- FIX 5: Use ONLY the exact topics and technologies mentioned in the syllabus. Do NOT substitute similar alternatives
+- Every question must be completely unique — do NOT repeat the same concept, topic, formula, or problem type twice
+- NEVER include the answer to a question within the question itself
+- Use ONLY the exact topics and technologies mentioned in the syllabus. Do NOT substitute similar alternatives
 
 Return ONLY a valid JSON array. No explanation, no markdown, no backticks:
 [
@@ -168,7 +166,8 @@ CRITICAL COUNT RULE: The array MUST contain EXACTLY ${questionCount} objects —
 Number each question mentally as you write it: 1, 2, 3... up to ${questionCount}.
 Do NOT stop early. Do NOT summarize. Write every single question out in full.
 After writing, count the array. If it has fewer than ${questionCount} objects, add more before returning.
-Generate all ${questionCount} questions now.
+Generate all ${questionCount} questions now.`;
+  }
 
   let lastError = null;
 
@@ -186,13 +185,18 @@ Generate all ${questionCount} questions now.
 
       const groq = new Groq({ apiKey });
 
+      const questionCount =
+        hours === "1" ? 10 :
+        hours === "8" ? 30 :
+        20;
+
       const completion = await groq.chat.completions.create({
         model: "llama-3.1-8b-instant",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.75,
         max_tokens: mode === "paper"
-  ? Math.min(sections.reduce((sum, sec) => sum + Number(sec.count), 0) * 250 + 500, 4000)
-  : questionCount === 30 ? 6000 : 4000,
+          ? Math.min(sections.reduce((sum, sec) => sum + Number(sec.count), 0) * 250 + 500, 4000)
+          : questionCount === 30 ? 6000 : 4000,
       });
 
       let rawText = completion.choices[0].message.content;
@@ -209,10 +213,9 @@ Generate all ${questionCount} questions now.
       const end = rawText.lastIndexOf("]");
 
       if (start === -1 || end === -1) {
-        return Response.json(
-          { error: "AI returned an unexpected format. Please try again." },
-          { status: 500 }
-        );
+        console.warn(`GROQ_API_KEY_${i + 1} returned unexpected format. Trying next key...`);
+        lastError = new Error("Unexpected format");
+        continue;
       }
 
       const cleanJson = rawText.slice(start, end + 1);
@@ -224,11 +227,6 @@ Generate all ${questionCount} questions now.
         console.log(`Success with GROQ_API_KEY_${i + 1} — got ${questions.length} questions`);
         return Response.json({ questions: questions.slice(0, totalNeeded) });
       }
-
-      const questionCount =
-        hours === "1" ? 10 :
-        hours === "8" ? 30 :
-        20;
 
       if (questions.length >= questionCount) {
         console.log(`Success with GROQ_API_KEY_${i + 1}`);
@@ -243,7 +241,7 @@ Generate all ${questionCount} questions now.
           model: "llama-3.1-8b-instant",
           messages: [{ role: "user", content: prompt }],
           temperature: 0.75,
-          max_tokens: 4000,
+          max_tokens: questionCount === 30 ? 6000 : 4000,
         });
 
         let retryRaw = retryCompletion.choices[0].message.content;
@@ -284,12 +282,12 @@ Generate all ${questionCount} questions now.
       }
 
       const isTooLong =
-  error?.status === 413 ||
-  error?.message?.toLowerCase().includes("too long") ||
-  error?.message?.toLowerCase().includes("context_length") ||
-  error?.message?.toLowerCase().includes("request_too_large") ||
-  JSON.stringify(error).toLowerCase().includes("context_length") ||
-  JSON.stringify(error).toLowerCase().includes("request_too_large");
+        error?.status === 413 ||
+        error?.message?.toLowerCase().includes("too long") ||
+        error?.message?.toLowerCase().includes("context_length") ||
+        error?.message?.toLowerCase().includes("request_too_large") ||
+        JSON.stringify(error).toLowerCase().includes("context_length") ||
+        JSON.stringify(error).toLowerCase().includes("request_too_large");
 
       if (isTooLong) {
         return Response.json(
@@ -303,16 +301,27 @@ Generate all ${questionCount} questions now.
       }
 
       console.error(`GROQ_API_KEY_${i + 1} failed:`, error.message);
-      return Response.json(
-        { error: "Something went wrong. Please try again." },
-        { status: 500 }
-      );
+      lastError = error;
+      continue;
     }
   }
 
-  console.error("All Groq API keys are rate limited.");
+  const allRateLimited = lastError && (
+    lastError?.status === 429 ||
+    JSON.stringify(lastError).toLowerCase().includes("rate limit")
+  );
+
+  if (allRateLimited) {
+    console.error("All Groq API keys are rate limited.");
+    return Response.json(
+      { error: "⚡ Too many requests right now — try again in a few minutes!" },
+      { status: 429 }
+    );
+  }
+
+  console.error("All Groq API keys failed.", lastError?.message);
   return Response.json(
-    { error: "⚡ Too many requests right now — try again in a few minutes!" },
-    { status: 429 }
+    { error: "Something went wrong on our end. Please try again." },
+    { status: 500 }
   );
 }
