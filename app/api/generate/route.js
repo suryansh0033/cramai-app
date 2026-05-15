@@ -104,7 +104,7 @@ Generate all ${totalQuestions} objects now.`;
         : "Mix of easy (30%), medium (40%), and hard (30%) questions. Cover everything in depth.";
 
     const formatInstructions = {
-      "Mixed": "Generate a smart mix of MCQs, short answer, and descriptive questions based on the topic type.",
+      "Mixed": "Generate a smart mix of MCQs, short answer, and descriptive questions based on the topic type. Never ask the student to draw or sketch anything. Never ask the same concept twice in different wording.",
       "MCQs only": `ALL ${questionCount} questions MUST be MCQs. This is NON-NEGOTIABLE and overrides everything else including subject type.
 Every single question must have exactly 4 options on separate lines labeled A) B) C) D).
 Format EVERY question exactly like this example:
@@ -151,9 +151,8 @@ STEP 5 — QUESTION FORMAT RULES:
 - For MCQs include all 4 options A) B) C) D) each on a separate line inside the question field
 - For Numericals include all required values in the question
 - Do NOT include any answers
-- Every question must be completely unique — do NOT repeat the same concept, topic, formula, or problem type twice
-- NEVER include the answer to a question within the question itself
-- Use ONLY the exact topics and technologies mentioned in the syllabus. Do NOT substitute similar alternatives
+- Every question must be completely unique — do NOT repeat the same concept, topic, formula, or problem type twice- Every question must be completely unique — do NOT repeat the same concept, topic, formula, or problem type twice, even in different wording or phrasing
+- Do NOT ask "Draw", "Sketch", or "Show the diagram of" anything — this is a text-based app. Replace any such question with "Explain" or "Describe" instead- Use ONLY the exact topics and technologies mentioned in the syllabus. Do NOT substitute similar alternatives
 
 Return ONLY a valid JSON array. No explanation, no markdown, no backticks:
 [
