@@ -73,15 +73,14 @@ ${sectionDescriptions}
 
 Rules:
 - Add [Unit - Topic] before each question
-- MCQ: include 4 options labeled A) B) C) D) each on a new line in the question text
+- - MCQ: include 4 options labeled A) B) C) D) separated by \n inside the question string (use the literal characters backslash-n, NOT actual line breaks)
 - Short Answer: clear concise question only
 - Long Answer: detailed question only
 - Numerical: include all required values/data in the question
 - Coding: problem statement with sample input/output in the question
 - Spread questions across all syllabus units
-- Every question must be completely unique — do NOT repeat the same concept, topic, or problem type twice
-- Before finalizing, scan all questions and remove any duplicates or near-duplicates
-- NEVER include the answer to a question within the question itself
+- - Every question must be completely unique — do NOT repeat the same concept, topic, formula, or problem type twice, even in different wording or phrasing
+- Do NOT ask "Draw", "Sketch", or "Show the diagram of" anything — this is a text-based app. Replace any such question with "Explain" or "Describe" instead
 - Use ONLY the exact topics and technologies mentioned in the syllabus. Do NOT substitute similar alternatives
 - Do NOT include any answers
 
@@ -194,7 +193,7 @@ Generate all ${questionCount} questions now.`;
         messages: [{ role: "user", content: prompt }],
         temperature: 0.75,
         max_tokens: mode === "paper"
-          ? Math.min(sections.reduce((sum, sec) => sum + Number(sec.count), 0) * 250 + 500, 4000)
+          ? Math.min(sections.reduce((sum, sec) => sum + Number(sec.count), 0) * 300 + 500, 6000)
           : questionCount === 30 ? 6000 : 4000,
       });
 
