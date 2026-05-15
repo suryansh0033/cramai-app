@@ -218,8 +218,23 @@ Generate all ${questionCount} questions now.`;
       }
 
       const cleanJson = rawText.slice(start, end + 1);
-      const sanitized = cleanJson.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
-      const questions = JSON.parse(sanitized);
+const sanitized = cleanJson.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
+
+let questions;
+try {
+  questions = JSON.parse(sanitized);
+} catch (e) {
+  const aggressive = sanitized
+    .replace(/[\r\n\t]/g, " ")
+    .replace(/\s{2,}/g, " ");
+  try {
+    questions = JSON.parse(aggressive);
+  } catch (e2) {
+    console.warn(`Key ${i + 1} JSON parse failed. Trying next key...`);
+    lastError = new Error("JSON parse failed");
+    continue;
+  }
+}
 
       if (mode === "paper") {
         const totalNeeded = sections.reduce((sum, sec) => sum + Number(sec.count), 0);
