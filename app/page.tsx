@@ -199,16 +199,16 @@ export default function Home() {
         >
           ⭐ Important Questions
         </button>
-        <button
-          onClick={() => { setMode("paper"); setQuestions([]); setPaperText(""); setError(""); }}
-          className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all duration-200 border ${
-            mode === "paper"
-              ? "bg-amber-400 text-black border-amber-400"
-              : "bg-transparent text-gray-400 border-white/10 hover:border-amber-400/50 hover:text-white"
-          }`}
-        >
-          📄 Question Paper
-        </button>
+        <div className="flex-1 relative">
+  <button
+    disabled
+    className="w-full py-3 rounded-xl font-bold text-sm border bg-transparent text-gray-600 border-white/10 cursor-not-allowed">
+    📄 Question Paper
+  </button>
+  <span className="absolute -top-2 -right-2 bg-amber-400 text-black text-xs font-black px-2 py-0.5 rounded-full">
+    Soon
+  </span>
+</div>
       </div>
 
       {/* ── Input Card ── */}
