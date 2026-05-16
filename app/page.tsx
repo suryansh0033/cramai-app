@@ -241,7 +241,6 @@ export default function Home() {
               onChange={(e) => setExamType(e.target.value)}
             >
               <option value="Mixed">Mixed — variety of question types</option>
-              <option value="MCQs only">MCQs only — 4 options with correct answer</option>
               <option value="Coding questions only">Coding questions only — problem + expected output</option>
               <option value="Short answer">Short answer — 2 to 3 lines</option>
               <option value="Subjective">Subjective — detailed answers</option>
