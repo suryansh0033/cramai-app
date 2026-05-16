@@ -92,10 +92,7 @@ Return ONLY a JSON array, no markdown:
 Generate all ${totalQuestions} objects now.`;
 
   } else {
-    const questionCount =
-      hours === "1" ? 10 :
-      hours === "8" ? 30 :
-      20;
+    const questionCount = hours === "1" ? 10 : 20;
 
     const difficultyGuide =
       hours === "1"
@@ -186,10 +183,7 @@ Generate all ${questionCount} questions now.`;
 
       const groq = new Groq({ apiKey });
 
-      const questionCount =
-        hours === "1" ? 10 :
-        hours === "8" ? 30 :
-        20;
+      const questionCount = hours === "1" ? 10 : 20;
 
       const completion = await groq.chat.completions.create({
         model: "llama-3.1-8b-instant",
@@ -257,7 +251,7 @@ Generate all ${questionCount} questions now.`;
           model: "llama-3.1-8b-instant",
           messages: [{ role: "user", content: prompt }],
           temperature: 0.75,
-          max_tokens: questionCount === 30 ? 6000 : 4000,
+          max_tokens: 4000,
         });
 
         let retryRaw = retryCompletion.choices[0].message.content;

@@ -119,7 +119,7 @@ export default function Home() {
 
     timeoutRef.current = setTimeout(() => {
       stopWithError("⚠️ Taking too long — servers are busy. Please try again!");
-    }, 15000);
+    }, 25000);
 
     try {
       const body =
@@ -165,7 +165,7 @@ export default function Home() {
     }
   }
 
-  const questionCount = hours === "1" ? 10 : hours === "8" ? 30 : 20;
+  const questionCount = hours === "1" ? 10 : 20;
 
   return (
     <main className="min-h-screen bg-[#0f0f0f] text-white px-4 py-10 font-sans">
