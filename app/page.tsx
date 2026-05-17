@@ -327,7 +327,7 @@ export default function Home() {
       {/* ── Feedback Button ── */}
       <div className="text-center mt-10 mb-6">
         <a
-          href="mailto:exam.cramai@gmail.com?subject=CramAI Feedback"
+          href="mailto:exams.cramai@gmail.com?subject=CramAI Feedback"
           className="text-gray-600 hover:text-gray-400 text-xs transition-colors duration-200"
         >
           💬 Send Feedback
