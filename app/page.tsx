@@ -57,7 +57,7 @@ export default function Home() {
       setLoadingMsgIndex(0);
       intervalRef.current = setInterval(() => {
         setLoadingMsgIndex((i) => (i + 1) % LOADING_MESSAGES.length);
-      }, 2000);
+      }, 3000);
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -107,7 +107,7 @@ export default function Home() {
     setQuestions([]);
     setPaperText("");
 
-    if (syllabus.length > 2000) { setLoading(false); return; }
+    if (syllabus.length > 3000) { setLoading(false); return; }
 
     if (mode === "paper" && sections.length === 0) {
       stopWithError("Please add at least one section before generating.");
@@ -231,8 +231,8 @@ export default function Home() {
   >
     Try a sample syllabus →
   </button>
-  <p className={`text-xs ${syllabus.length > 2000 ? "text-red-400" : "text-gray-500"}`}>
-    {syllabus.length} / 2000 characters
+  <p className={`text-xs ${syllabus.length > 3000 ? "text-red-400" : "text-gray-500"}`}>
+    {syllabus.length} / 3000 characters
   </p>
 </div>
 
@@ -269,7 +269,7 @@ export default function Home() {
         {/* ── Generate Button ── */}
         <button
           onClick={handleGenerate}
-          disabled={loading || syllabus.trim() === "" || syllabus.length > 2000}
+          disabled={loading || syllabus.trim() === "" || syllabus.length > 3000}
           className="mt-6 w-full bg-amber-400 hover:bg-amber-300 disabled:bg-amber-400/30 disabled:cursor-not-allowed text-black font-bold py-4 rounded-xl text-base transition-all duration-200 active:scale-95"
         >
           {loading ? "Generating…" : "Generate Exam Questions"}
