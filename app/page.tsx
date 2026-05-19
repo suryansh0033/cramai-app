@@ -165,6 +165,13 @@ export default function Home() {
     }
   }
 
+  function fillSample() {
+  setSyllabus("Unit 1: Semiconductor Diodes - PN junction, forward and reverse bias, Zener diode. Unit 2: Transistors - BJT, NPN and PNP, CE CB CC configurations, biasing. Unit 3: Operational Amplifiers - Ideal op-amp, inverting and non-inverting amplifier, applications.");
+  setHours("1");
+  setExamType("Mixed");
+  setError("");
+}
+
   const questionCount = hours === "1" ? 10 : 20;
 
   return (
@@ -214,9 +221,17 @@ export default function Home() {
           value={syllabus}
           onChange={(e) => { setSyllabus(e.target.value); setError(""); }}
         />
-        <p className={`text-right text-xs mt-1 ${syllabus.length > 2000 ? "text-red-400" : "text-gray-500"}`}>
-          {syllabus.length} / 2000 characters
-        </p>
+        <div className="flex justify-between items-center mt-1">
+  <button
+    onClick={fillSample}
+    className="text-xs text-amber-400/60 hover:text-amber-400 transition-colors duration-200"
+  >
+    Try a sample syllabus →
+  </button>
+  <p className={`text-xs ${syllabus.length > 2000 ? "text-red-400" : "text-gray-500"}`}>
+    {syllabus.length} / 2000 characters
+  </p>
+</div>
 
         {/* ── IMPORTANT QUESTIONS OPTIONS ── */}
         {mode === "important" && (
