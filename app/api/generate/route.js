@@ -186,7 +186,7 @@ Generate all ${questionCount} questions now.`;
       const questionCount = hours === "1" ? 10 : 20;
 
       const completion = await groq.chat.completions.create({
-        model: "llama-3.1-8b-instant",
+        model: "meta-llama/llama-4-scout-17b-16e-instruct",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.75,
         max_tokens: mode === "paper"
