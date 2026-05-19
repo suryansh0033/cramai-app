@@ -16,9 +16,9 @@ export async function POST(request) {
     );
   }
 
-  if (syllabus.length > 2000) {
+  if (syllabus.length > 3000) {
     return Response.json(
-      { error: "⚠️ Your syllabus is too long! Please paste only the key topics — keep it under 2000 characters for best results." },
+      { error: "⚠️ Your syllabus is too long! Please paste only the key topics — keep it under 3000 characters for best results." },
       { status: 400 }
     );
   }
@@ -308,7 +308,7 @@ Generate all ${questionCount} questions now.`;
           {
             error: mode === "paper"
               ? "⚠️ Your question paper is too large to generate at once. Try reducing the number of questions per section."
-              : "⚠️ Your syllabus is too long! Please paste only the key topics — keep it under 2000 characters for best results."
+              : "⚠️ Your syllabus is too long! Please paste only the key topics — keep it under 3000 characters for best results."
           },
           { status: 400 }
         );
