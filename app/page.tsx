@@ -33,6 +33,7 @@ const MARKS_OPTIONS: Record<string, number[]> = {
 
 export default function Home() {
   const [syllabus, setSyllabus] = useState("");
+  const [pyqText, setPyqText] = useState("");
   const [hours, setHours] = useState("2");
   const [examType, setExamType] = useState("Mixed");
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -57,7 +58,7 @@ export default function Home() {
       setLoadingMsgIndex(0);
       intervalRef.current = setInterval(() => {
         setLoadingMsgIndex((i) => (i + 1) % LOADING_MESSAGES.length);
-      }, 3000);
+      }, 2000);
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -101,6 +102,13 @@ export default function Home() {
     );
   }
 
+  function fillSample() {
+    setSyllabus("Transistors and Biasing Circuits: BJT: Principle and operation of NPN transistor, configuration and characteristics (CB, CE, and CC), types of biasing circuit. Hybrid Parameters Introduction. Two port networks, hybrid model for CE, CC, CB configuration and their analysis using h-parameters, Miller theorem. FET: Principle of Operation and characteristics of JFET, biasing of FET, MOSFET and CMOS.");
+    setHours("1");
+    setExamType("Mixed");
+    setError("");
+  }
+
   async function handleGenerate() {
     setLoading(true);
     setError("");
@@ -125,7 +133,7 @@ export default function Home() {
       const body =
         mode === "paper"
           ? { syllabus, mode: "paper", sections }
-          : { syllabus, hours, examType, mode: "important" };
+          : { syllabus, pyqText, hours, examType, mode: "important" };
 
       const response = await fetch("/api/generate", {
         method: "POST",
@@ -165,13 +173,6 @@ export default function Home() {
     }
   }
 
-  function fillSample() {
-  setSyllabus("Unit 1: Semiconductor Diodes - PN junction, forward and reverse bias, Zener diode. Unit 2: Transistors - BJT, NPN and PNP, CE CB CC configurations, biasing. Unit 3: Operational Amplifiers - Ideal op-amp, inverting and non-inverting amplifier, applications.");
-  setHours("1");
-  setExamType("Mixed");
-  setError("");
-}
-
   const questionCount = hours === "1" ? 10 : 20;
 
   return (
@@ -181,11 +182,11 @@ export default function Home() {
       <div className="text-center mb-10">
         <h1 className="text-5xl font-black tracking-tight text-amber-400">CramAI</h1>
         <p className="text-gray-400 mt-2 text-sm max-w-md mx-auto">
-  Built for college students — Paste your syllabus, get the most important exam questions instantly.
-</p>
-<p className="text-gray-500 mt-3 text-sm text-center">
-  100+ students tried it • Free to use • No login needed
-</p>
+          Built for college students — Paste your syllabus, get the most important exam questions instantly.
+        </p>
+        <p className="text-gray-500 mt-3 text-sm text-center">
+          100+ students tried it • Free to use • No login needed
+        </p>
       </div>
 
       {/* ── Mode Toggle ── */}
@@ -224,17 +225,35 @@ export default function Home() {
           value={syllabus}
           onChange={(e) => { setSyllabus(e.target.value); setError(""); }}
         />
+
         <div className="flex justify-between items-center mt-1">
-  <button
-    onClick={fillSample}
-    className="text-xs text-amber-400/60 hover:text-amber-400 transition-colors duration-200"
-  >
-    Try a sample syllabus →
-  </button>
-  <p className={`text-xs ${syllabus.length > 3000 ? "text-red-400" : "text-gray-500"}`}>
-    {syllabus.length} / 3000 characters
-  </p>
-</div>
+          <button
+            onClick={fillSample}
+            className="text-xs text-amber-400/60 hover:text-amber-400 transition-colors duration-200"
+          >
+            Try a sample syllabus →
+          </button>
+          <p className={`text-xs ${syllabus.length > 3000 ? "text-red-400" : "text-gray-500"}`}>
+            {syllabus.length} / 3000 characters
+          </p>
+        </div>
+
+        {/* ── PYQ Textarea ── */}
+        {mode === "important" && (
+          <>
+            <label className="block text-sm font-semibold text-gray-300 mt-5 mb-2">
+              Previous Year Question Paper{" "}
+              <span className="text-gray-600 font-normal">(optional)</span>
+            </label>
+            <textarea
+              className="w-full bg-[#0f0f0f] text-white border border-white/10 rounded-xl p-4 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder-gray-600 transition"
+              rows={4}
+              placeholder="Paste last year's question paper here… CramAI will use it to predict more accurate questions."
+              value={pyqText}
+              onChange={(e) => setPyqText(e.target.value)}
+            />
+          </>
+        )}
 
         {/* ── IMPORTANT QUESTIONS OPTIONS ── */}
         {mode === "important" && (
@@ -344,7 +363,7 @@ export default function Home() {
 
       {/* ── Feedback Button ── */}
       <div className="text-center mt-10 mb-6">
-        <a
+        
           href="mailto:exams.cramai@gmail.com?subject=CramAI Feedback"
           className="text-gray-600 hover:text-gray-400 text-xs transition-colors duration-200"
         >

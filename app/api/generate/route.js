@@ -7,7 +7,7 @@ const API_KEYS = [
 ];
 
 export async function POST(request) {
-  const { syllabus, hours, examType, mode, sections } = await request.json();
+  const { syllabus, pyqText, hours, examType, mode, sections } = await request.json();
 
   if (!syllabus || syllabus.trim() === "") {
     return Response.json(
@@ -118,6 +118,14 @@ Do NOT generate numericals, coding problems, or plain questions without options.
       "Numericals only": `ALL ${questionCount} must be numerical problems with all required values provided in the question. No MCQs, no coding, no theory questions.`,
     };
 
+    const pyqSection = pyqText && pyqText.trim().length > 0
+      ? `PREVIOUS YEAR QUESTION PAPER (for pattern reference only):
+${pyqText.trim()}
+— Use this to understand the pattern, difficulty, and topic weightage of past exams. Do not repeat these exact questions.
+
+`
+      : "";
+
     prompt = `You are an expert exam question predictor for college students.
 
 IMPORTANT: If the syllabus is gibberish or nonsense, respond with only: INVALID_SYLLABUS
@@ -125,7 +133,7 @@ IMPORTANT: If the syllabus is gibberish or nonsense, respond with only: INVALID_
 SYLLABUS:
 ${syllabus}
 
-Generate EXACTLY ${questionCount} predicted exam questions. No answers — questions only.
+${pyqSection}Generate EXACTLY ${questionCount} predicted exam questions. No answers — questions only.
 
 STEP 1 — UNIT ANALYSIS:
 Identify all units/topics. Give more questions to heavier units. Every unit gets at least 1 question.
@@ -186,7 +194,7 @@ Generate all ${questionCount} questions now.`;
       const questionCount = hours === "1" ? 10 : 20;
 
       const completion = await groq.chat.completions.create({
-        model: "meta-llama/llama-4-scout-17b-16e-instruct",
+        model: "meta-llama/llama-4-scout-17b-16e-instruct",,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.75,
         max_tokens: mode === "paper"
