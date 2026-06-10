@@ -185,7 +185,7 @@ export default function Home() {
           Built for college students — Paste your syllabus, get the most important exam questions instantly.
         </p>
         <p className="text-gray-500 mt-3 text-sm text-center">
-          100+ students tried it • Free to use • No login needed
+           Free to use • No login needed
         </p>
       </div>
 
