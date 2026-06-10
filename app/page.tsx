@@ -366,7 +366,7 @@ export default function Home() {
         
           href="mailto:exams.cramai@gmail.com?subject=CramAI Feedback"
           className="text-gray-600 hover:text-gray-400 text-xs transition-colors duration-200"
-        >
+        <a>
           💬 Send Feedback
         </a>
       </div>
