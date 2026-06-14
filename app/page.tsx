@@ -373,52 +373,7 @@ export default function Home() {
           </>
         )
 
-        {/* ── QUESTIONS OUTPUT (both modes) ── */}
-{questions.length > 0 && (
-  <div className="max-w-xl mx-auto mt-10">
-    <h2 className="text-xl font-bold text-amber-400 mb-5">
-      {mode === "paper" ? "📄 Your Question Paper" : `📋 ${questionCount} Predicted Exam Questions`}
-    </h2>
 
-    {mode === "paper" ? (
-      // Group by section label
-      (() => {
-        const grouped: Record<string, typeof questions> = {};
-        questions.forEach((q) => {
-          const sec = q.section || "A";
-          if (!grouped[sec]) grouped[sec] = [];
-          grouped[sec].push(q);
-        });
-        return Object.entries(grouped).map(([sec, qs]) => (
-          <div key={sec} className="mb-8">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
-              Section {sec} · {qs[0]?.type} · {qs[0]?.marks} mark{qs[0]?.marks !== 1 ? "s" : ""} each
-            </p>
-            <div className="flex flex-col gap-4">
-              {qs.map((item, index) => (
-                <div key={index} className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-5 shadow-md">
-                  <p className="text-sm font-bold text-amber-400 mb-1">Q{index + 1}.</p>
-                  <p className="text-white text-sm font-medium leading-relaxed whitespace-pre-line">
-                    {item.question.replace(/\\n/g, "\n")}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        ));
-      })()
-    ) : (
-      <div className="flex flex-col gap-4">
-        {questions.map((item, index) => (
-          <div key={index} className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-5 shadow-md">
-            <p className="text-sm font-bold text-amber-400 mb-1">Q{index + 1}.</p>
-            <p className="text-white text-sm font-medium leading-relaxed whitespace-pre-line">
-              {item.question.replace(/\\n/g, "\n")}
-            </p>
-          </div>
-        ))}
-      </div>
-    )}
 
     <button
   onClick={downloadPDF}
