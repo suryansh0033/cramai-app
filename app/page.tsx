@@ -202,16 +202,17 @@ export default function Home() {
           ⭐ Important Questions
         </button>
         <div className="flex-1 relative">
-          <button
-            disabled
-            className="w-full py-3 rounded-xl font-bold text-sm border bg-transparent text-gray-600 border-white/10 cursor-not-allowed"
-          >
-            📄 Question Paper
-          </button>
-          <span className="absolute -top-2 -right-2 bg-amber-400 text-black text-xs font-black px-2 py-0.5 rounded-full">
-            Soon
-          </span>
-        </div>
+  <button
+    onClick={() => { setMode("paper"); setQuestions([]); setPaperText(""); setError(""); }}
+    className={`w-full py-3 rounded-xl font-bold text-sm transition-all duration-200 border ${
+      mode === "paper"
+        ? "bg-amber-400 text-black border-amber-400"
+        : "bg-transparent text-gray-400 border-white/10 hover:border-amber-400/50 hover:text-white"
+    }`}
+  >
+    📄 Question Paper
+  </button>
+</div>
       </div>
 
       {/* ── Input Card ── */}
@@ -239,7 +240,7 @@ export default function Home() {
         </div>
 
         {/* ── PYQ Textarea ── */}
-        {mode === "important" && (
+{false && mode === "important" && (
           <>
             <label className="block text-sm font-semibold text-gray-300 mt-5 mb-2">
               Previous Year Question Paper{" "}
@@ -343,7 +344,7 @@ export default function Home() {
       {questions.length > 0 && mode === "important" && (
         <div className="max-w-xl mx-auto mt-10">
           <h2 className="text-xl font-bold text-amber-400 mb-5">
-            📋 {questionCount} Predicted Exam Questions
+            📋 {questionCount} Predicted Exam Question
           </h2>
           <div className="flex flex-col gap-4">
             {questions.map((item, index) => (
