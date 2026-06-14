@@ -94,6 +94,8 @@ Generate all ${totalQuestions} objects now.`;
   } else {
     const questionCount = hours === "1" ? 10 : 20;
 
+    
+
     const difficultyGuide =
       hours === "1"
         ? "Focus ONLY on the easiest, most frequently asked, most important questions."

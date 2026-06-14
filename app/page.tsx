@@ -175,6 +175,13 @@ export default function Home() {
 
   const questionCount = hours === "1" ? 10 : 20;
 
+  const groupedPaperQuestions = questions.reduce((acc, q) => {
+  const sec = q.section || "A";
+  if (!acc[sec]) acc[sec] = [];
+  acc[sec].push(q);
+  return acc;
+}, {} as Record<string, Question[]>);
+
   return (
     <main className="min-h-screen bg-[#0f0f0f] text-white px-4 py-10 font-sans">
 
@@ -319,7 +326,7 @@ export default function Home() {
               onChange={(e) => setPyqText(e.target.value)}
             />
           </>
-        )}
+        )
 
         {/* ── QUESTIONS OUTPUT (both modes) ── */}
 {questions.length > 0 && (
@@ -399,7 +406,7 @@ export default function Home() {
               <option value="Numericals only">Numericals only — step by step calculations</option>
             </select>
           </>
-        )}
+        )
 
         {/* ── Generate Button ── */}
         <button
