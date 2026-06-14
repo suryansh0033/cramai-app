@@ -162,10 +162,11 @@ export default function Home() {
 
       setLoading(false);
       if (mode === "paper") {
-        setPaperText(data.paperText || "");
-      } else {
-        setQuestions(data.questions);
-      }
+  setPaperText(data.paperText || "");
+  setQuestions(data.questions || []);
+} else {
+  setQuestions(data.questions);
+}
     } catch (err: any) {
       if (err?.name !== "AbortError") {
         stopWithError("Network error. Please check your connection and try again.");
