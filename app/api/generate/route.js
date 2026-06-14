@@ -241,11 +241,13 @@ Generate all ${questionCount} questions now.`;
       }
 
       if (mode === "paper") {
-        const totalNeeded = sections.reduce((sum, sec) => sum + Number(sec.count), 0);
-        console.log(`Success with GROQ_API_KEY_${i + 1} — got ${questions.length} questions`);
-        return Response.json({ questions: questions.slice(0, totalNeeded) });
-      }
-
+  const totalNeeded = sections.reduce((sum, sec) => sum + Number(sec.count), 0);
+  console.log(`Success with GROQ_API_KEY_${i + 1} — got ${questions.length} questions`);
+  return Response.json({
+    questions: questions.slice(0, totalNeeded),
+    paperText: questions.slice(0, totalNeeded).map((q, i) => `Q${i + 1}. ${q.question}`).join("\n\n"),
+  });
+}
       if (questions.length >= questionCount) {
         console.log(`Success with GROQ_API_KEY_${i + 1}`);
         return Response.json({ questions: questions.slice(0, questionCount) });

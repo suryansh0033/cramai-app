@@ -239,8 +239,73 @@ export default function Home() {
           </p>
         </div>
 
-        {/* ── PYQ Textarea ── */}
-{false && mode === "important" && (
+        {/* ── QUESTION PAPER BUILDER ── */}
+{mode === "paper" && (
+  <div className="mt-5">
+    <p className="text-sm font-semibold text-gray-300 mb-4">Build Your Question Paper</p>
+
+    <div className="flex flex-col gap-3">
+      {sections.map((sec) => (
+        <div key={sec.id} className="flex gap-2 items-center">
+
+          {/* Type */}
+          <select
+            value={sec.type}
+            onChange={(e) => updateSection(sec.id, "type", e.target.value)}
+            className="flex-1 bg-[#0f0f0f] text-white border border-white/10 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
+          >
+            {Object.keys(MARKS_OPTIONS).map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+
+          {/* Count */}
+          <input
+            type="number"
+            min={1}
+            max={30}
+            value={sec.count}
+            onChange={(e) => updateSection(sec.id, "count", e.target.value)}
+            className="w-16 bg-[#0f0f0f] text-white border border-white/10 rounded-xl p-2.5 text-xs text-center focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
+          />
+          <span className="text-gray-600 text-xs">Qs</span>
+
+          {/* Marks */}
+          <select
+            value={sec.marks}
+            onChange={(e) => updateSection(sec.id, "marks", e.target.value)}
+            className="w-20 bg-[#0f0f0f] text-white border border-white/10 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
+          >
+            {MARKS_OPTIONS[sec.type].map((m) => (
+              <option key={m} value={m}>{m} mk</option>
+            ))}
+          </select>
+
+          {/* Remove */}
+          <button
+            onClick={() => removeSection(sec.id)}
+            className="text-gray-600 hover:text-red-400 text-lg leading-none transition-colors duration-200 px-1"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+    </div>
+
+    {/* Add Section + Total Marks */}
+    <div className="flex justify-between items-center mt-4">
+      <button
+        onClick={addSection}
+        className="text-xs text-amber-400/70 hover:text-amber-400 border border-amber-400/30 hover:border-amber-400 rounded-lg px-3 py-1.5 transition-all duration-200"
+      >
+        + Add Section
+      </button>
+      <p className="text-xs text-gray-400">
+        Total Marks: <span className="text-amber-400 font-bold">{totalMarks}</span>
+      </p>
+    </div>
+  </div>
+)}
           <>
             <label className="block text-sm font-semibold text-gray-300 mt-5 mb-2">
               Previous Year Question Paper{" "}
@@ -256,8 +321,58 @@ export default function Home() {
           </>
         )}
 
-        {/* ── IMPORTANT QUESTIONS OPTIONS ── */}
-        {mode === "important" && (
+        {/* ── QUESTIONS OUTPUT (both modes) ── */}
+{questions.length > 0 && (
+  <div className="max-w-xl mx-auto mt-10">
+    <h2 className="text-xl font-bold text-amber-400 mb-5">
+      {mode === "paper" ? "📄 Your Question Paper" : `📋 ${questionCount} Predicted Exam Questions`}
+    </h2>
+
+    {mode === "paper" ? (
+      // Group by section label
+      (() => {
+        const grouped: Record<string, typeof questions> = {};
+        questions.forEach((q) => {
+          const sec = q.section || "A";
+          if (!grouped[sec]) grouped[sec] = [];
+          grouped[sec].push(q);
+        });
+        return Object.entries(grouped).map(([sec, qs]) => (
+          <div key={sec} className="mb-8">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
+              Section {sec} · {qs[0]?.type} · {qs[0]?.marks} mark{qs[0]?.marks !== 1 ? "s" : ""} each
+            </p>
+            <div className="flex flex-col gap-4">
+              {qs.map((item, index) => (
+                <div key={index} className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-5 shadow-md">
+                  <p className="text-sm font-bold text-amber-400 mb-1">Q{index + 1}.</p>
+                  <p className="text-white text-sm font-medium leading-relaxed whitespace-pre-line">
+                    {item.question.replace(/\\n/g, "\n")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ));
+      })()
+    ) : (
+      <div className="flex flex-col gap-4">
+        {questions.map((item, index) => (
+          <div key={index} className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-5 shadow-md">
+            <p className="text-sm font-bold text-amber-400 mb-1">Q{index + 1}.</p>
+            <p className="text-white text-sm font-medium leading-relaxed whitespace-pre-line">
+              {item.question.replace(/\\n/g, "\n")}
+            </p>
+          </div>
+        ))}
+      </div>
+    )}
+
+    <p className="text-center text-gray-600 text-xs mt-8 mb-4">
+      Generated by CramAI · Good luck on your exam! 🍀
+    </p>
+  </div>
+)}
           <>
             <label className="block text-sm font-semibold text-gray-300 mt-5 mb-2">Hours Left Before Exam</label>
             <select
