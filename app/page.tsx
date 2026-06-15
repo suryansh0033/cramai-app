@@ -17,6 +17,7 @@ type Section = {
 
 import { useState, useEffect, useRef } from "react";
 import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 const LOADING_MESSAGES = [
   "Analyzing your syllabus...",
@@ -55,6 +56,7 @@ export default function Home() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const completionCardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (loading) {
@@ -121,7 +123,7 @@ export default function Home() {
 
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
-    doc.text("CramAI - Predicted Exam Questions", margin, y);
+    doc.text("CramAI — Predicted Exam Questions", margin, y);
     y += 8;
 
     doc.setFontSize(10);
@@ -143,7 +145,7 @@ export default function Home() {
         grouped[sec].push(q);
       });
       Object.entries(grouped).forEach(([sec, qs]) => {
-        const sectionLabel = `Section ${sec} - ${qs[0]?.type} (${qs[0]?.marks} mark${qs[0]?.marks !== 1 ? "s" : ""} each)`;
+        const sectionLabel = `Section ${sec} — ${qs[0]?.type} (${qs[0]?.marks} mark${qs[0]?.marks !== 1 ? "s" : ""} each)`;
         doc.setFontSize(13);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(180, 120, 0);
@@ -189,11 +191,31 @@ export default function Home() {
     doc.save("CramAI-Questions.pdf");
   }
 
+  async function shareCompletion() {
+    if (!completionCardRef.current) return;
+    try {
+      const canvas = await html2canvas(completionCardRef.current, {
+        backgroundColor: "#1a1a1a",
+        scale: 2,
+      });
+      const image = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = "CramAI-done.png";
+      link.href = image;
+      link.click();
+    } catch (e) {
+      console.error("Share failed:", e);
+    }
+  }
+
   async function handleGenerate() {
     setLoading(true);
     setError("");
     setQuestions([]);
     setPaperText("");
+    setStudyMode(false);
+    setCurrentCard(0);
+    setDoneCards(new Set());
 
     if (syllabus.length > 3000) { setLoading(false); return; }
 
@@ -241,9 +263,6 @@ export default function Home() {
       }
 
       setLoading(false);
-      setStudyMode(false);
-      setCurrentCard(0);
-      setDoneCards(new Set());
       if (mode === "paper") {
         setPaperText(data.paperText || "");
         setQuestions(data.questions || []);
@@ -328,23 +347,6 @@ export default function Home() {
           </p>
         </div>
 
-        {/* ── PYQ Textarea (hidden for now) ── */}
-        {false && mode === "important" && (
-          <>
-            <label className="block text-sm font-semibold text-gray-300 mt-5 mb-2">
-              Previous Year Question Paper{" "}
-              <span className="text-gray-600 font-normal">(optional)</span>
-            </label>
-            <textarea
-              className="w-full bg-[#0f0f0f] text-white border border-white/10 rounded-xl p-4 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder-gray-600 transition"
-              rows={4}
-              placeholder="Paste last year's question paper here… CramAI will use it to predict more accurate questions."
-              value={pyqText}
-              onChange={(e) => setPyqText(e.target.value)}
-            />
-          </>
-        )}
-
         {/* ── QUESTION PAPER BUILDER ── */}
         {mode === "paper" && (
           <div className="mt-5">
@@ -361,7 +363,6 @@ export default function Home() {
                       <option key={t} value={t}>{t}</option>
                     ))}
                   </select>
-
                   <input
                     type="number"
                     min={1}
@@ -371,7 +372,6 @@ export default function Home() {
                     className="w-16 bg-[#0f0f0f] text-white border border-white/10 rounded-xl p-2.5 text-xs text-center focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
                   />
                   <span className="text-gray-600 text-xs">Qs</span>
-
                   <select
                     value={sec.marks}
                     onChange={(e) => updateSection(sec.id, "marks", e.target.value)}
@@ -381,7 +381,6 @@ export default function Home() {
                       <option key={m} value={m}>{m} mk</option>
                     ))}
                   </select>
-
                   <button
                     onClick={() => removeSection(sec.id)}
                     className="text-gray-600 hover:text-red-400 text-lg leading-none transition-colors duration-200 px-1"
@@ -463,10 +462,7 @@ export default function Home() {
               <div className="absolute inset-0 rounded-full border-4 border-amber-400 border-t-transparent animate-spin" />
             </div>
             <div className="text-center">
-              <p
-                key={loadingMsgIndex}
-                className="text-white font-semibold text-sm animate-pulse"
-              >
+              <p key={loadingMsgIndex} className="text-white font-semibold text-sm animate-pulse">
                 {LOADING_MESSAGES[loadingMsgIndex]}
               </p>
               <p className="text-gray-600 text-xs mt-2">This usually takes 5–10 seconds</p>
@@ -489,22 +485,43 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── IMPORTANT QUESTIONS OUTPUT ── */}
-      {!loading && questions.length > 0 && mode === "important" && (
+      {/* ── QUESTIONS OUTPUT (both modes) ── */}
+      {questions.length > 0 && (
         <div className="max-w-xl mx-auto mt-10">
           <h2 className="text-xl font-bold text-amber-400 mb-5">
-            📋 {questionCount} Predicted Exam Questions
+            {mode === "paper" ? "📄 Your Question Paper" : `📋 ${questionCount} Predicted Exam Questions`}
           </h2>
-          <div className="flex flex-col gap-4">
-            {questions.map((item, index) => (
-              <div key={index} className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-5 shadow-md">
-                <p className="text-sm font-bold text-amber-400 mb-1">Q{index + 1}.</p>
-                <p className="text-white text-sm font-medium leading-relaxed whitespace-pre-line">
-                  {item.question.replace(/\\n/g, "\n")}
+
+          {mode === "paper" ? (
+            Object.entries(groupedPaperQuestions).map(([sec, qs]) => (
+              <div key={sec} className="mb-8">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
+                  Section {sec} · {qs[0]?.type} · {qs[0]?.marks} mark{qs[0]?.marks !== 1 ? "s" : ""} each
                 </p>
+                <div className="flex flex-col gap-4">
+                  {qs.map((item, index) => (
+                    <div key={index} className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-5 shadow-md">
+                      <p className="text-sm font-bold text-amber-400 mb-1">Q{index + 1}.</p>
+                      <p className="text-white text-sm font-medium leading-relaxed whitespace-pre-line">
+                        {item.question.replace(/\\n/g, "\n")}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
+            ))
+          ) : (
+            <div className="flex flex-col gap-4">
+              {questions.map((item, index) => (
+                <div key={index} className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-5 shadow-md">
+                  <p className="text-sm font-bold text-amber-400 mb-1">Q{index + 1}.</p>
+                  <p className="text-white text-sm font-medium leading-relaxed whitespace-pre-line">
+                    {item.question.replace(/\\n/g, "\n")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex gap-3 mt-6">
             <button
@@ -527,49 +544,9 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── QUESTION PAPER OUTPUT ── */}
-      {!loading && questions.length > 0 && mode === "paper" && (
-        <div className="max-w-xl mx-auto mt-10">
-          <h2 className="text-xl font-bold text-amber-400 mb-5">
-            📄 Your Question Paper
-          </h2>
-
-          {Object.entries(groupedPaperQuestions).map(([sec, qs]) => (
-            <div key={sec} className="mb-8">
-              <h3 className="text-sm font-bold text-amber-400/90 mb-3 uppercase tracking-wide">
-                Section {sec} · {qs[0]?.type} · {qs[0]?.marks} mark{qs[0]?.marks !== 1 ? "s" : ""} each
-              </h3>
-              <div className="flex flex-col gap-4">
-                {qs.map((item, index) => (
-                  <div key={index} className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-5 shadow-md">
-                    <p className="text-sm font-bold text-amber-400 mb-1">Q{index + 1}.</p>
-                    <p className="text-white text-sm font-medium leading-relaxed whitespace-pre-line">
-                      {item.question.replace(/\\n/g, "\n")}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-
-          <button
-            onClick={downloadPDF}
-            className="mt-2 w-full border border-amber-400/40 text-amber-400 hover:bg-amber-400/10 font-bold py-3 rounded-xl text-sm transition-all duration-200 active:scale-95"
-          >
-            ⬇ Download as PDF
-          </button>
-
-          <p className="text-center text-gray-600 text-xs mt-8 mb-4">
-            Generated by CramAI · Good luck on your exam! 🍀
-          </p>
-        </div>
-      )}
-
       {/* ── STUDY MODE ── */}
       {studyMode && questions.length > 0 && (
         <div className="max-w-xl mx-auto mt-10">
-
-          {/* Exit button */}
           <button
             onClick={() => setStudyMode(false)}
             className="text-xs text-gray-500 hover:text-gray-300 transition-colors mb-4"
@@ -579,7 +556,6 @@ export default function Home() {
 
           {currentCard < questions.length ? (
             <>
-              {/* Progress bar */}
               <div className="flex items-center gap-3 mb-6">
                 <div className="flex-1 bg-white/10 rounded-full h-2">
                   <div
@@ -592,15 +568,12 @@ export default function Home() {
                 </span>
               </div>
 
-              {/* Card counter */}
               <p className="text-xs text-gray-600 mb-2 text-center">
                 Question {currentCard + 1} of {questions.length}
               </p>
 
-              {/* Flashcard */}
               <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 shadow-xl min-h-[200px] flex flex-col justify-between">
                 <div>
-                  {/* Importance badge */}
                   {questions[currentCard]?.importance && (
                     <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full mb-3 ${
                       questions[currentCard].importance === "High"
@@ -614,14 +587,11 @@ export default function Home() {
                        "⚪ Low Priority"}
                     </span>
                   )}
-
-                  {/* Question text */}
                   <p className="text-white text-sm font-medium leading-relaxed whitespace-pre-line mt-2">
                     {questions[currentCard]?.question?.replace(/\\n/g, "\n")}
                   </p>
                 </div>
 
-                {/* Actions */}
                 <div className="flex gap-3 mt-6">
                   <button
                     onClick={() => setCurrentCard((c) => Math.max(0, c - 1))}
@@ -633,7 +603,11 @@ export default function Home() {
                   <button
                     onClick={() => {
                       setDoneCards((prev) => new Set(prev).add(currentCard));
-                      setCurrentCard((c) => Math.min(questions.length, c + 1));
+                      if (currentCard < questions.length - 1) {
+                        setCurrentCard((c) => c + 1);
+                      } else {
+                        setCurrentCard(questions.length);
+                      }
                     }}
                     className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-amber-400 hover:bg-amber-300 text-black transition-all active:scale-95"
                   >
@@ -649,7 +623,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Dot indicators */}
               <div className="flex justify-center gap-1.5 mt-4 flex-wrap">
                 {questions.map((_, i) => (
                   <button
@@ -667,19 +640,38 @@ export default function Home() {
               </div>
             </>
           ) : (
-            /* Completion screen */
-            <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-8 text-center">
-              <p className="text-4xl mb-4">🎉</p>
-              <h3 className="text-xl font-bold text-amber-400 mb-2">You're done!</h3>
-              <p className="text-gray-400 text-sm mb-6">
-                You reviewed all {questions.length} questions. Good luck on your exam!
-              </p>
-              <button
-                onClick={() => { setCurrentCard(0); setDoneCards(new Set()); }}
-                className="w-full py-3 rounded-xl font-bold text-sm bg-amber-400 hover:bg-amber-300 text-black transition-all active:scale-95"
+            <div className="flex flex-col gap-4">
+              <div
+                ref={completionCardRef}
+                className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-8 text-center"
               >
-                🔄 Start Over
-              </button>
+                <p className="text-4xl mb-4">🎉</p>
+                <h3 className="text-xl font-bold text-amber-400 mb-2">You're done!</h3>
+                <p className="text-gray-400 text-sm mb-4">
+                  You reviewed all {questions.length} questions.
+                </p>
+                <div className="flex justify-center gap-4 text-xs text-gray-500 mb-4">
+                  <span>✅ {doneCards.size} marked done</span>
+                  <span>📚 Powered by CramAI</span>
+                  <span>🌐 trycramai.me</span>
+                </div>
+                <p className="text-amber-400 font-bold text-sm">Good luck on your exam! 🍀</p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setCurrentCard(0); setDoneCards(new Set()); }}
+                  className="flex-1 py-3 rounded-xl font-bold text-sm border border-white/10 text-gray-400 hover:border-white/30 transition-all active:scale-95"
+                >
+                  🔄 Start Over
+                </button>
+                <button
+                  onClick={shareCompletion}
+                  className="flex-1 py-3 rounded-xl font-bold text-sm bg-amber-400 hover:bg-amber-300 text-black transition-all active:scale-95"
+                >
+                  📸 Save Card
+                </button>
+              </div>
             </div>
           )}
         </div>
