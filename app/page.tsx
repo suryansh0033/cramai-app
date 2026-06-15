@@ -17,7 +17,7 @@ type Section = {
 
 import { useState, useEffect, useRef } from "react";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+
 
 const LOADING_MESSAGES = [
   "Analyzing your syllabus...",
@@ -194,9 +194,12 @@ export default function Home() {
   async function shareCompletion() {
     if (!completionCardRef.current) return;
     try {
+      const html2canvas = (await import("html2canvas")).default;
       const canvas = await html2canvas(completionCardRef.current, {
         backgroundColor: "#1a1a1a",
         scale: 2,
+        useCORS: true,
+        logging: false,
       });
       const image = canvas.toDataURL("image/png");
       const link = document.createElement("a");
