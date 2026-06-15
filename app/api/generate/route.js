@@ -139,6 +139,7 @@ ${pyqSection}Generate EXACTLY ${questionCount} predicted exam questions. No answ
 
 STEP 1 — UNIT ANALYSIS:
 Identify all units/topics. Give more questions to heavier units. Every unit gets at least 1 question.
+Assess importance of each question based on unit weightage: heavier/more emphasized units = "High", moderate units = "Medium", lighter units = "Low". Add this as the "importance" field in each object.
 Every question must be completely unique — no two questions can ask the same thing, even in different wording. Before finalizing, scan all questions and remove any duplicates or near-duplicates.
 
 STEP 2 — DIFFICULTY:
@@ -166,7 +167,8 @@ STEP 5 — QUESTION FORMAT RULES:
 Return ONLY a valid JSON array. No explanation, no markdown, no backticks:
 [
   {
-    "question": "[Unit 1 - Topic Name] Write the full question here?"
+    "question": "[Unit 1 - Topic Name] Write the full question here?",
+    "importance": "High"
   }
 ]
 
