@@ -191,26 +191,55 @@ export default function Home() {
     doc.save("CramAI-Questions.pdf");
   }
 
-  async function shareCompletion() {
-    if (!completionCardRef.current) return;
-    try {
-      const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(completionCardRef.current, {
-        backgroundColor: "#1a1a1a",
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      });
-      const image = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.download = "CramAI-done.png";
-      link.href = image;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (e) {
-      console.error("Share failed:", e);
-    }
+  function shareCompletion() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 600;
+    canvas.height = 400;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Background
+    ctx.fillStyle = "#1a1a1a";
+    ctx.fillRect(0, 0, 600, 400);
+
+    // Border
+    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.lineWidth = 2;
+    ctx.roundRect(10, 10, 580, 380, 16);
+    ctx.stroke();
+
+    // Emoji
+    ctx.font = "48px serif";
+    ctx.textAlign = "center";
+    ctx.fillText("🎉", 300, 100);
+
+    // Title
+    ctx.fillStyle = "#fbbf24";
+    ctx.font = "bold 32px sans-serif";
+    ctx.fillText("You're done!", 300, 160);
+
+    // Subtitle
+    ctx.fillStyle = "#9ca3af";
+    ctx.font = "18px sans-serif";
+    ctx.fillText(`Reviewed all ${questions.length} questions`, 300, 210);
+
+    // Stats
+    ctx.fillStyle = "#6b7280";
+    ctx.font = "14px sans-serif";
+    ctx.fillText(`✅ ${doneCards.size} marked done  •  📚 CramAI  •  trycramai.me`, 300, 260);
+
+    // Footer
+    ctx.fillStyle = "#fbbf24";
+    ctx.font = "bold 16px sans-serif";
+    ctx.fillText("Good luck on your exam! 🍀", 300, 320);
+
+    // Download
+    const link = document.createElement("a");
+    link.download = "CramAI-done.png";
+    link.href = canvas.toDataURL("image/png");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   async function handleGenerate() {
