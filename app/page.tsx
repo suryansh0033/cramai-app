@@ -192,7 +192,11 @@ export default function Home() {
   }
 
   async function shareCompletion() {
-    if (!completionCardRef.current) return;
+    if (!completionCardRef.current) {
+      alert("Ref not found!");
+      return;
+    }
+    alert("Starting download...");
     try {
       const html2canvas = (await import("html2canvas")).default;
       const canvas = await html2canvas(completionCardRef.current, {
