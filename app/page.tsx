@@ -192,11 +192,7 @@ export default function Home() {
   }
 
   async function shareCompletion() {
-    if (!completionCardRef.current) {
-      alert("Ref not found!");
-      return;
-    }
-    alert("Starting download...");
+    if (!completionCardRef.current) return;
     try {
       const html2canvas = (await import("html2canvas")).default;
       const canvas = await html2canvas(completionCardRef.current, {
@@ -209,7 +205,9 @@ export default function Home() {
       const link = document.createElement("a");
       link.download = "CramAI-done.png";
       link.href = image;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     } catch (e) {
       console.error("Share failed:", e);
     }
