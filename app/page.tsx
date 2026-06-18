@@ -19,6 +19,7 @@ import { useState, useEffect, useRef } from "react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { useUser, SignOutButton } from '@clerk/nextjs';
+import { useClerk } from '@clerk/nextjs';
 
 const LOADING_MESSAGES = [
   "Analyzing your syllabus...",
@@ -37,6 +38,7 @@ const MARKS_OPTIONS: Record<string, number[]> = {
 
 export default function Home() {
   const { isSignedIn, user } = useUser();
+  const { signOut } = useClerk();
   const [syllabus, setSyllabus] = useState("");
   const [pyqText, setPyqText] = useState("");
   const [hours, setHours] = useState("2");
@@ -303,11 +305,12 @@ export default function Home() {
   {isSignedIn ? (
     <div className="flex items-center gap-3">
       <span className="text-sm text-gray-400">Hi, {user.firstName || user.emailAddresses[0].emailAddress}</span>
-      <SignOutButton>
-        <button className="text-sm font-semibold text-black bg-amber-400 hover:bg-amber-300 px-4 py-2 rounded-xl transition-all duration-200">
-          Sign Out
-        </button>
-      </SignOutButton>
+      <button
+  onClick={() => signOut({ redirectUrl: '/' })}
+  className="text-sm font-semibold text-black bg-amber-400 hover:bg-amber-300 px-4 py-2 rounded-xl transition-all duration-200"
+>
+  Sign Out
+</button>
     </div>
   ) : (
     <a
