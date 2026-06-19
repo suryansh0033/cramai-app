@@ -59,11 +59,11 @@ function DashboardView({ firstName }: { firstName?: string | null }) {
       {/* ── Quick Stats ── */}
       <div className="grid grid-cols-3 gap-3 mb-8">
         <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-4 text-center">
-          <p className="text-xl font-bold text-amber-400">24</p>
+          <p className="text-xl font-bold text-amber-400">0</p>
           <p className="text-[11px] text-gray-500 mt-1">Questions Generated</p>
         </div>
         <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-4 text-center">
-          <p className="text-xl font-bold text-amber-400">3</p>
+          <p className="text-xl font-bold text-amber-400">0</p>
           <p className="text-[11px] text-gray-500 mt-1">Papers Created</p>
         </div>
         <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-4 text-center">
