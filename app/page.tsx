@@ -390,7 +390,7 @@ function HomeContent() {
               Built for college students — Paste your syllabus, get the most important exam questions instantly.
             </p>
             <p className="text-gray-500 mt-3 text-sm">
-              100+ students tried it • Free to use
+              
             </p>
           </div>
 
