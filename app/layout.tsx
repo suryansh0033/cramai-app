@@ -3,6 +3,9 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Analytics } from '@vercel/analytics/react';
 import { ClerkProvider } from '@clerk/nextjs';
+import { Suspense } from 'react';
+import TopBar from './components/TopBar';
+import BottomNav from './components/BottomNav';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,7 +33,14 @@ export default function RootLayout({
         lang="en"
         className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       >
-        <body className="min-h-full flex flex-col">{children}<Analytics /></body>
+        <body className="min-h-full flex flex-col bg-[#0a0a0a]">
+          <TopBar />
+          <div className="flex-1 pb-20">{children}</div>
+          <Suspense fallback={null}>
+            <BottomNav />
+          </Suspense>
+          <Analytics />
+        </body>
       </html>
     </ClerkProvider>
   );
