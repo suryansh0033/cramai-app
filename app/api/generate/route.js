@@ -1,10 +1,37 @@
 import Groq from "groq-sdk";
+import { auth } from "@clerk/nextjs/server";
+import { connectDB } from "../../../lib/mongodb";
+import History from "../../../models/History";
 
 const API_KEYS = [
   process.env.GROQ_API_KEY_1,
   process.env.GROQ_API_KEY_2,
   process.env.GROQ_API_KEY_3,
 ];
+
+async function saveToHistory({ type, syllabusInput, generatedContent }) {
+  try {
+    const { userId } = await auth();
+    if (!userId) return; // guest user — skip saving, generation still works
+
+    await connectDB();
+
+    const title = syllabusInput
+      ? syllabusInput.trim().slice(0, 50) + (syllabusInput.length > 50 ? "..." : "")
+      : "Untitled";
+
+    await History.create({
+      userId,
+      type,
+      syllabusInput,
+      generatedContent,
+      title,
+    });
+  } catch (err) {
+    console.error("Failed to save history:", err.message);
+    // never throw — saving history should never break the actual response
+  }
+}
 
 export async function POST(request) {
   const { syllabus, pyqText, hours, examType, mode, sections } = await request.json();
@@ -93,8 +120,6 @@ Generate all ${totalQuestions} objects now.`;
 
   } else {
     const questionCount = hours === "1" ? 10 : 20;
-
-    
 
     const difficultyGuide =
       hours === "1"
@@ -245,16 +270,33 @@ Generate all ${questionCount} questions now.`;
       }
 
       if (mode === "paper") {
-  const totalNeeded = sections.reduce((sum, sec) => sum + Number(sec.count), 0);
-  console.log(`Success with GROQ_API_KEY_${i + 1} — got ${questions.length} questions`);
-  return Response.json({
-    questions: questions.slice(0, totalNeeded),
-    paperText: questions.slice(0, totalNeeded).map((q, i) => `Q${i + 1}. ${q.question}`).join("\n\n"),
-  });
-}
+        const totalNeeded = sections.reduce((sum, sec) => sum + Number(sec.count), 0);
+        console.log(`Success with GROQ_API_KEY_${i + 1} — got ${questions.length} questions`);
+        const finalQuestions = questions.slice(0, totalNeeded);
+
+        await saveToHistory({
+          type: "question_paper",
+          syllabusInput: syllabus,
+          generatedContent: finalQuestions,
+        });
+
+        return Response.json({
+          questions: finalQuestions,
+          paperText: finalQuestions.map((q, i) => `Q${i + 1}. ${q.question}`).join("\n\n"),
+        });
+      }
+
       if (questions.length >= questionCount) {
         console.log(`Success with GROQ_API_KEY_${i + 1}`);
-        return Response.json({ questions: questions.slice(0, questionCount) });
+        const finalQuestions = questions.slice(0, questionCount);
+
+        await saveToHistory({
+          type: "study_mode",
+          syllabusInput: syllabus,
+          generatedContent: finalQuestions,
+        });
+
+        return Response.json({ questions: finalQuestions });
       }
 
       console.warn(`Got ${questions.length} questions, expected ${questionCount}. Retrying...`);
@@ -280,7 +322,15 @@ Generate all ${questionCount} questions now.`;
             const retryParsed = JSON.parse(retryJson);
             if (retryParsed.length >= questionCount) {
               console.log(`Retry ${retry + 1} succeeded.`);
-              return Response.json({ questions: retryParsed.slice(0, questionCount) });
+              const finalQuestions = retryParsed.slice(0, questionCount);
+
+              await saveToHistory({
+                type: "study_mode",
+                syllabusInput: syllabus,
+                generatedContent: finalQuestions,
+              });
+
+              return Response.json({ questions: finalQuestions });
             }
             retryQuestions = retryParsed;
           } catch (retryParseErr) {
@@ -290,6 +340,13 @@ Generate all ${questionCount} questions now.`;
       }
 
       console.warn(`Returning best attempt: ${retryQuestions.length} questions.`);
+
+      await saveToHistory({
+        type: "study_mode",
+        syllabusInput: syllabus,
+        generatedContent: retryQuestions,
+      });
+
       return Response.json({ questions: retryQuestions });
 
     } catch (error) {
