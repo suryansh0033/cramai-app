@@ -9,10 +9,9 @@ const API_KEYS = [
   process.env.GROQ_API_KEY_3,
 ];
 
-async function saveToHistory({ type, syllabusInput, generatedContent }) {
-  try {
-    const { userId } = await auth();
-    if (!userId) return; // guest user — skip saving, generation still works
+async function saveToHistory({ userId, type, syllabusInput, generatedContent }) {
+try {
+    if (!userId) return;
 
     await connectDB();
 
@@ -34,6 +33,7 @@ async function saveToHistory({ type, syllabusInput, generatedContent }) {
 }
 
 export async function POST(request) {
+  const { userId } = await auth();
   const { syllabus, pyqText, hours, examType, mode, sections } = await request.json();
 
   if (!syllabus || syllabus.trim() === "") {
@@ -275,6 +275,7 @@ Generate all ${questionCount} questions now.`;
         const finalQuestions = questions.slice(0, totalNeeded);
 
         await saveToHistory({
+          userId,
           type: "question_paper",
           syllabusInput: syllabus,
           generatedContent: finalQuestions,
@@ -291,6 +292,7 @@ Generate all ${questionCount} questions now.`;
         const finalQuestions = questions.slice(0, questionCount);
 
         await saveToHistory({
+          userId,
           type: "study_mode",
           syllabusInput: syllabus,
           generatedContent: finalQuestions,
@@ -325,6 +327,7 @@ Generate all ${questionCount} questions now.`;
               const finalQuestions = retryParsed.slice(0, questionCount);
 
               await saveToHistory({
+                userId,
                 type: "study_mode",
                 syllabusInput: syllabus,
                 generatedContent: finalQuestions,
@@ -342,6 +345,7 @@ Generate all ${questionCount} questions now.`;
       console.warn(`Returning best attempt: ${retryQuestions.length} questions.`);
 
       await saveToHistory({
+        userId,
         type: "study_mode",
         syllabusInput: syllabus,
         generatedContent: retryQuestions,
