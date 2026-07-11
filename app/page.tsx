@@ -46,6 +46,25 @@ function getGreeting() {
 
 function DashboardView({ firstName }: { firstName?: string | null }) {
   const greeting = getGreeting();
+  const [stats, setStats] = useState({ questionsGenerated: 0, papersCreated: 0, lastUsed: "—" });
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/history")
+      .then((res) => res.json())
+      .then((data) => {
+        const history = data.history || [];
+        const questionsGenerated = history.filter((h: any) => h.type === "study_mode").length;
+        const papersCreated = history.filter((h: any) => h.type === "question_paper").length;
+        const lastUsed = history.length > 0
+          ? new Date(history[0].createdAt).toLocaleDateString()
+          : "—";
+        setStats({ questionsGenerated, papersCreated, lastUsed });
+      })
+      .catch((e) => console.error("Stats fetch failed:", e))
+      .finally(() => setLoadingStats(false));
+  }, []);
+
   return (
     <div className="max-w-xl mx-auto">
       {/* ── Greeting ── */}
@@ -59,15 +78,21 @@ function DashboardView({ firstName }: { firstName?: string | null }) {
       {/* ── Quick Stats ── */}
       <div className="grid grid-cols-3 gap-3 mb-8">
         <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-4 text-center">
-          <p className="text-xl font-bold text-amber-400">0</p>
+          <p className="text-xl font-bold text-amber-400">
+            {loadingStats ? "…" : stats.questionsGenerated}
+          </p>
           <p className="text-[11px] text-gray-500 mt-1">Questions Generated</p>
         </div>
         <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-4 text-center">
-          <p className="text-xl font-bold text-amber-400">0</p>
+          <p className="text-xl font-bold text-amber-400">
+            {loadingStats ? "…" : stats.papersCreated}
+          </p>
           <p className="text-[11px] text-gray-500 mt-1">Papers Created</p>
         </div>
         <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-4 text-center">
-          <p className="text-sm font-bold text-amber-400">Today</p>
+          <p className="text-sm font-bold text-amber-400">
+            {loadingStats ? "…" : stats.lastUsed}
+          </p>
           <p className="text-[11px] text-gray-500 mt-1">Last Used</p>
         </div>
       </div>
@@ -103,10 +128,6 @@ function DashboardView({ firstName }: { firstName?: string | null }) {
           <span className="text-amber-400 text-lg">→</span>
         </Link>
       </div>
-
-      <p className="text-center text-gray-600 text-xs mt-10">
-        Stats are placeholders for now — real tracking comes with the database update.
-      </p>
     </div>
   );
 }
@@ -361,6 +382,18 @@ function HomeContent() {
       } else {
         setQuestions(data.questions);
       }
+
+      // Save to history (fire-and-forget, don't block UI on this)
+      fetch("/api/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: mode === "paper" ? "question_paper" : "study_mode",
+          syllabusInput: syllabus,
+          generatedContent: mode === "paper" ? data.paperText || data.questions : data.questions,
+          title: syllabus.slice(0, 60),
+        }),
+      }).catch((e) => console.error("History save failed:", e));
     } catch (err: any) {
       if (err?.name !== "AbortError") {
         stopWithError("Network error. Please check your connection and try again.");
