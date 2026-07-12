@@ -383,17 +383,7 @@ function HomeContent() {
         setQuestions(data.questions);
       }
 
-      // Save to history (fire-and-forget, don't block UI on this)
-      fetch("/api/history", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: mode === "paper" ? "question_paper" : "study_mode",
-          syllabusInput: syllabus,
-          generatedContent: mode === "paper" ? data.paperText || data.questions : data.questions,
-          title: syllabus.slice(0, 60),
-        }),
-      }).catch((e) => console.error("History save failed:", e));
+      
     } catch (err: any) {
       if (err?.name !== "AbortError") {
         stopWithError("Network error. Please check your connection and try again.");
