@@ -2,6 +2,7 @@
 
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import Image from "next/image";
 
 function Icon({ name }: { name: string }) {
@@ -39,9 +40,15 @@ function Icon({ name }: { name: string }) {
 }
 
 export default function ProfilePage() {
-  const { user } = useUser();
+  const { user, isSignedIn, isLoaded } = useUser();
   const { signOut } = useClerk();
   const router = useRouter();
+
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.push("/sign-in");
+    }
+  }, [isLoaded, isSignedIn, router]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -49,6 +56,14 @@ export default function ProfilePage() {
   };
 
   const initial = user?.firstName?.[0] || user?.fullName?.[0] || "S";
+
+  if (!isLoaded || !isSignedIn) {
+    return (
+      <main className="min-h-screen bg-[#0a0a0a] text-white px-4 pt-12 pb-24 flex items-center justify-center">
+        <p className="text-gray-500 text-sm">Redirecting to sign in…</p>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white px-4 pt-12 pb-24">
@@ -68,9 +83,6 @@ export default function ProfilePage() {
           </div>
         )}
         <h1 className="text-lg font-bold">{user?.fullName || "Student"}</h1>
-        <span className="mt-2 text-[11px] font-bold uppercase tracking-wider bg-[#F5C518]/10 text-[#F5C518] px-2.5 py-1 rounded-full">
-          Free Plan
-        </span>
       </div>
 
       {/* Account details card */}
