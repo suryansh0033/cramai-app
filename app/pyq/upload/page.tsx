@@ -1,7 +1,10 @@
 "use client";
 
+"use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import SearchDropdown from "../../components/SearchDropdown";
 import { COLLEGES } from "../../../lib/colleges";
 import { BRANCHES } from "../../../lib/branches";
@@ -11,6 +14,7 @@ const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
 export default function UploadPYQPage() {
   const router = useRouter();
+  const { isSignedIn } = useUser();
   const [file, setFile] = useState<File | null>(null);
   const [college, setCollege] = useState("");
   const [branch, setBranch] = useState("");
@@ -23,6 +27,11 @@ export default function UploadPYQPage() {
 
   async function handleSubmit() {
     setError("");
+
+    if (!isSignedIn) {
+      setError("Please sign in to upload a PYQ.");
+      return;
+    }
 
     if (!file || !college || !branch || !subject || !semester || !year) {
       setError("Please fill in all fields and select a file.");
@@ -83,6 +92,14 @@ export default function UploadPYQPage() {
         <p className="text-gray-400 text-sm mb-6">
           Your upload will be reviewed before it goes public.
         </p>
+
+        {!isSignedIn && (
+          <div className="bg-amber-400/10 border border-amber-400/30 rounded-xl px-4 py-3 mb-6">
+            <p className="text-amber-400 text-sm font-medium">
+              You'll need to sign in before submitting your upload.
+            </p>
+          </div>
+        )}
 
         <label className="block text-sm font-semibold text-gray-300 mb-2">College</label>
         <div className="mb-4">
@@ -148,10 +165,10 @@ export default function UploadPYQPage() {
 
         <button
           onClick={handleSubmit}
-          disabled={uploading}
+          disabled={uploading || !isSignedIn}
           className="w-full bg-amber-400 hover:bg-amber-300 disabled:bg-amber-400/30 disabled:cursor-not-allowed text-black font-bold py-4 rounded-xl text-base transition-all duration-200 active:scale-95"
         >
-          {uploading ? "Uploading…" : "Submit for Review"}
+          {!isSignedIn ? "Sign in to Submit" : uploading ? "Uploading…" : "Submit for Review"}
         </button>
 
         {error && <p className="mt-4 text-sm text-center font-medium text-red-400">{error}</p>}
