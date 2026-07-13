@@ -7,6 +7,7 @@ const TABS = [
   { key: "home", label: "Dashboard", href: "/" },
   { key: "questions", label: "Questions", href: "/?mode=important" },
   { key: "paper", label: "Paper", href: "/?mode=paper" },
+  { key: "pyq", label: "PYQs", href: "/pyq" },
   { key: "notifications", label: "Alerts", href: "/notifications" },
   { key: "profile", label: "Profile", href: "/profile" },
 ];
@@ -46,6 +47,13 @@ function Icon({ name, active }: { name: string; active: boolean }) {
         <path d="M9 17h6" />
       </svg>
     );
+  if (name === "pyq")
+    return (
+      <svg {...props}>
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+      </svg>
+    );
   if (name === "notifications")
     return (
       <svg {...props}>
@@ -71,6 +79,7 @@ export default function BottomNav() {
   function isActive(key: string) {
     if (key === "notifications") return pathname === "/notifications";
     if (key === "profile") return pathname === "/profile";
+    if (key === "pyq") return pathname.startsWith("/pyq");
     if (pathname !== "/") return false;
     if (key === "questions") return mode === "important";
     if (key === "paper") return mode === "paper";
@@ -80,7 +89,7 @@ export default function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#0a0a0a]/95 backdrop-blur border-t border-white/10">
-      <div className="max-w-xl mx-auto px-2 h-16 flex items-center justify-between">
+      <div className="max-w-xl mx-auto px-1 h-16 flex items-center justify-between">
         {TABS.map((tab) => {
           const active = isActive(tab.key);
           return (

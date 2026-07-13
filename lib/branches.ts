@@ -1,0 +1,15 @@
+export const BRANCHES = [
+  "CSE",
+  "IT",
+  "ECE",
+  "EEE",
+  "ME",
+  "Civil",
+  "Chemical",
+  "Aerospace",
+  "Biotechnology",
+  "Automobile",
+  "Metallurgical",
+  "Production/Industrial",
+  "Instrumentation",
+];
